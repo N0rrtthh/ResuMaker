@@ -38,7 +38,7 @@ const INITIAL_DATA: ResumeData = {
   summary:
     'User-focused designer with 5+ years of experience building accessible web products. I turn complex flows into simple interfaces that users enjoy.',
   skills: 'UI Design, UX Research, Figma, Prototyping, Design Systems, Accessibility, React',
-  accentColor: '#ff6a3d',
+  accentColor: '#3b82f6',
   experiences: [
     {
       id: 1,
@@ -144,12 +144,18 @@ function App() {
 
   return (
     <div className="page-shell">
+      <div className="ambient ambient-one" aria-hidden="true" />
+      <div className="ambient ambient-two" aria-hidden="true" />
+      <div className="ambient ambient-three" aria-hidden="true" />
+
       <header className="topbar">
-        <div>
+        <div className="header-copy">
           <p className="tag">ResuMaker</p>
           <h1>Build your resume in minutes</h1>
+          <p className="subtitle">Minimal controls. Liquid-glass style. Instant live preview.</p>
         </div>
-        <div className="header-actions">
+        <div className="header-actions" role="group" aria-label="Resume actions">
+          <p className="sync-pill">Live Sync Enabled</p>
           <button type="button" className="secondary-btn" onClick={resetTemplate}>
             Reset Template
           </button>
@@ -162,6 +168,7 @@ function App() {
       <main className="workspace">
         <section className="editor-panel">
           <h2>Simple Controls</h2>
+          <p className="panel-meta">Update your details and watch the preview refresh instantly.</p>
 
           <div className="field-grid">
             <label>
@@ -317,6 +324,7 @@ function App() {
 
         <section className="preview-panel">
           <h2>Live Preview</h2>
+          <p className="panel-meta">Print-ready layout optimized for PDF export.</p>
           <article className="resume" style={{ ['--accent' as string]: resume.accentColor }}>
             <header className="resume-header">
               <h3>{resume.fullName || 'Your Name'}</h3>
