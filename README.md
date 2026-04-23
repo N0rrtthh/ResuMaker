@@ -8,13 +8,16 @@ A simplified and user-friendly resume maker website built with React + TypeScrip
 - Full profile controls for personal info, links, summary, skills, experience, projects, and education
 - Add/remove controls for multiple experience, project, and education entries
 - Resume Quality Score (ATS-inspired checklist with actionable feedback)
+- Structured control groups: quality overview, builder toolkit, and section layout toggles
 - One-click summary generator based on your entered data
 - Action-verb helper buttons for stronger experience bullets
 - Section visibility toggles to tailor resume output per job application
 - Local draft save/load with browser persistence
 - Import/export resume data as JSON
 - Copy resume as plain text for fast pasting into job portals
+- Quick title preset chips for faster role targeting
 - Accent color picker to personalize the resume
+- Light and dark mode toggle with saved preference
 - Premium liquid-glass visual style inspired by modern Apple UI aesthetics
 - Print-friendly export flow using browser print to save as PDF
 - Mobile-responsive UI
