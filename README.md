@@ -9,6 +9,7 @@ A simplified and user-friendly resume maker website built with React + TypeScrip
 - Add/remove controls for multiple experience, project, and education entries
 - Resume Quality Score (ATS-inspired checklist with actionable feedback)
 - Structured control groups: quality overview, builder toolkit, and section layout toggles
+- AI Resume Evaluation with optional OpenAI-powered review and local fallback
 - One-click summary generator based on your entered data
 - Action-verb helper buttons for stronger experience bullets
 - Section visibility toggles to tailor resume output per job application
@@ -18,6 +19,7 @@ A simplified and user-friendly resume maker website built with React + TypeScrip
 - Quick title preset chips for faster role targeting
 - Accent color picker to personalize the resume
 - Light and dark mode toggle with saved preference
+- OpenAI API key and model inputs for live AI review, stored locally in your browser
 - Premium liquid-glass visual style inspired by modern Apple UI aesthetics
 - Print-friendly export flow using browser print to save as PDF
 - Mobile-responsive UI

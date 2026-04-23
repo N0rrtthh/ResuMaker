@@ -56,8 +56,33 @@ type AtsCheck = {
 
 type ColorMode = 'light' | 'dark'
 
+type AiInsightImpact = 'high' | 'medium' | 'low'
+
+type AiInsight = {
+  id: string
+  title: string
+  impact: AiInsightImpact
+  pass: boolean
+  feedback: string
+}
+
+type AiEvaluation = {
+  score: number
+  summary: string
+  insights: AiInsight[]
+}
+
+type TransitionCapableDocument = Document & {
+  startViewTransition?: (update: () => void) => {
+    finished: Promise<void>
+  }
+}
+
 const STORAGE_KEY = 'resumaker-draft-v3'
 const COLOR_MODE_STORAGE_KEY = 'resumaker-color-mode-v1'
+const AI_API_KEY_STORAGE_KEY = 'resumaker-openai-api-key-v1'
+const AI_MODEL_STORAGE_KEY = 'resumaker-openai-model-v1'
+const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
 
 const ACTION_VERBS = ['Led', 'Improved', 'Designed', 'Delivered', 'Optimized', 'Built']
 
@@ -178,6 +203,254 @@ const normalizeUrl = (value: string) => {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`
 }
 
+const readStoredValue = (key: string, fallback = '') => {
+  if (typeof window === 'undefined') {
+    return fallback
+  }
+
+  try {
+    return localStorage.getItem(key) ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
+const clampNumber = (value: unknown, fallback: number, minimum: number, maximum: number) => {
+  const numericValue =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim()
+        ? Number(value)
+        : Number.NaN
+
+  if (!Number.isFinite(numericValue)) {
+    return fallback
+  }
+
+  return Math.min(maximum, Math.max(minimum, numericValue))
+}
+
+const buildHeuristicAiEvaluation = (
+  resume: ResumeData,
+  filledExperiences: Experience[],
+  filledProjects: Project[],
+  parsedSkills: string[],
+): AiEvaluation => {
+  const summaryLength = resume.summary.trim().length
+  const summaryQuality = summaryLength >= 90 && summaryLength <= 340
+  const hasValidEmail = /^\S+@\S+\.\S+$/.test(resume.email.trim())
+  const contactQuality = Boolean(
+    resume.fullName.trim() &&
+      resume.title.trim() &&
+      hasValidEmail &&
+      resume.phone.trim() &&
+      resume.location.trim(),
+  )
+
+  const measurableExperienceCoverage = filledExperiences.length
+    ? filledExperiences.filter((exp) => /\d/.test(exp.details)).length / filledExperiences.length
+    : 0
+
+  const actionVerbCoverage = filledExperiences.length
+    ? filledExperiences.filter((exp) =>
+        ACTION_VERBS.some((verb) => exp.details.trim().toLowerCase().startsWith(verb.toLowerCase())),
+      ).length / filledExperiences.length
+    : 0
+
+  const projectProof = filledProjects.some(
+    (project) =>
+      project.name.trim().length > 0 &&
+      project.tech.trim().length > 0 &&
+      project.details.trim().length >= 50,
+  )
+
+  const titleKeywords = resume.title
+    .toLowerCase()
+    .split(/[^a-z0-9]+/i)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 4)
+
+  const searchableContent = [
+    resume.summary,
+    ...filledExperiences.map((exp) => `${exp.role} ${exp.details}`),
+    ...filledProjects.map((project) => `${project.name} ${project.tech} ${project.details}`),
+  ]
+    .join(' ')
+    .toLowerCase()
+
+  const titleAlignment =
+    titleKeywords.length === 0 ||
+    titleKeywords.filter((keyword) => searchableContent.includes(keyword)).length /
+      titleKeywords.length >=
+      0.5
+
+  const insights: AiInsight[] = [
+    {
+      id: 'contact',
+      title: 'Contact and headline clarity',
+      impact: 'high',
+      pass: contactQuality,
+      feedback: contactQuality
+        ? 'Header looks professional and easy for recruiters to scan.'
+        : 'Add a clear headline plus valid email, phone, and location in the contact section.',
+    },
+    {
+      id: 'summary',
+      title: 'Summary quality',
+      impact: 'high',
+      pass: summaryQuality,
+      feedback: summaryQuality
+        ? 'Summary length and density are in a strong range for hiring screens.'
+        : 'Aim for a summary between 90 and 340 characters with a clear value statement.',
+    },
+    {
+      id: 'impact',
+      title: 'Quantified impact in experience',
+      impact: 'high',
+      pass: filledExperiences.length > 0 && measurableExperienceCoverage >= 0.6,
+      feedback:
+        filledExperiences.length > 0 && measurableExperienceCoverage >= 0.6
+          ? 'Most experience entries include metrics, which boosts credibility.'
+          : 'Add numbers or outcomes (%, $, time saved) to more experience entries.',
+    },
+    {
+      id: 'verbs',
+      title: 'Action-oriented writing',
+      impact: 'medium',
+      pass: filledExperiences.length > 0 && actionVerbCoverage >= 0.5,
+      feedback:
+        filledExperiences.length > 0 && actionVerbCoverage >= 0.5
+          ? 'Strong use of action verbs across your work history.'
+          : 'Start more bullets with action verbs like Led, Built, Improved, or Designed.',
+    },
+    {
+      id: 'skills',
+      title: 'Skill coverage',
+      impact: 'medium',
+      pass: parsedSkills.length >= 6,
+      feedback:
+        parsedSkills.length >= 6
+          ? 'Skill section has enough depth for most ATS parsing.'
+          : 'Add at least 6 relevant skills aligned to your target role.',
+    },
+    {
+      id: 'projects',
+      title: 'Project proof of work',
+      impact: 'medium',
+      pass: projectProof || filledExperiences.length >= 2,
+      feedback:
+        projectProof || filledExperiences.length >= 2
+          ? 'Portfolio evidence is present through projects or strong experience history.'
+          : 'Add one project with stack, scope, and measurable outcome to strengthen your profile.',
+    },
+    {
+      id: 'alignment',
+      title: 'Role keyword alignment',
+      impact: 'low',
+      pass: titleAlignment,
+      feedback: titleAlignment
+        ? 'Your resume language aligns with your target title keywords.'
+        : 'Reuse important title keywords naturally in summary, experience, and project details.',
+    },
+    {
+      id: 'links',
+      title: 'Professional links',
+      impact: 'low',
+      pass: Boolean(resume.website.trim() || resume.linkedin.trim()),
+      feedback:
+        resume.website.trim() || resume.linkedin.trim()
+          ? 'Professional links are present for quick verification.'
+          : 'Add LinkedIn or a portfolio link to improve trust and visibility.',
+    },
+  ]
+
+  const weightMap: Record<AiInsightImpact, number> = {
+    high: 4,
+    medium: 3,
+    low: 2,
+  }
+
+  const maxScore = insights.reduce((total, insight) => total + weightMap[insight.impact], 0)
+  const earnedScore = insights.reduce(
+    (total, insight) => total + (insight.pass ? weightMap[insight.impact] : 0),
+    0,
+  )
+  const score = Math.round((earnedScore / maxScore) * 100)
+
+  let summary = 'Your resume is progressing well. Keep refining impact and role alignment.'
+  if (score >= 88) {
+    summary = 'Excellent profile quality. Your resume is highly competitive for recruiter review.'
+  } else if (score >= 72) {
+    summary = 'Good baseline. A few targeted improvements can raise interview conversion.'
+  } else if (score >= 55) {
+    summary = 'Moderate quality. Improve impact metrics and section depth for stronger ATS performance.'
+  } else {
+    summary = 'Early draft quality. Focus on core sections, measurable outcomes, and contact completeness.'
+  }
+
+  return {
+    score,
+    summary,
+    insights,
+  }
+}
+
+const normalizeAiEvaluation = (candidate: unknown, fallback: AiEvaluation): AiEvaluation => {
+  if (!candidate || typeof candidate !== 'object') {
+    return fallback
+  }
+
+  const data = candidate as Record<string, unknown>
+  const rawInsights = Array.isArray(data.insights) ? data.insights : []
+
+  const normalizedInsights = fallback.insights.map((template) => {
+    const candidateInsight = rawInsights.find((item) => {
+      if (!item || typeof item !== 'object') {
+        return false
+      }
+
+      return (item as Record<string, unknown>).id === template.id
+    }) as Record<string, unknown> | undefined
+
+    if (!candidateInsight) {
+      return template
+    }
+
+    const impact =
+      candidateInsight.impact === 'high' ||
+      candidateInsight.impact === 'medium' ||
+      candidateInsight.impact === 'low'
+        ? (candidateInsight.impact as AiInsightImpact)
+        : template.impact
+    const pass = typeof candidateInsight.pass === 'boolean' ? candidateInsight.pass : template.pass
+    const title =
+      typeof candidateInsight.title === 'string' && candidateInsight.title.trim()
+        ? candidateInsight.title.trim()
+        : template.title
+    const feedback =
+      typeof candidateInsight.feedback === 'string' && candidateInsight.feedback.trim()
+        ? candidateInsight.feedback.trim()
+        : template.feedback
+
+    return {
+      id: template.id,
+      title,
+      impact,
+      pass,
+      feedback,
+    }
+  })
+
+  return {
+    score: clampNumber(data.score, fallback.score, 0, 100),
+    summary:
+      typeof data.summary === 'string' && data.summary.trim()
+        ? data.summary.trim()
+        : fallback.summary,
+    insights: normalizedInsights,
+  }
+}
+
 let cachedInitialDraft: {
   resume: ResumeData
   sectionVisibility: SectionVisibility
@@ -254,6 +527,18 @@ function App() {
     () => readInitialDraft().sectionVisibility,
   )
   const [colorMode, setColorMode] = useState<ColorMode>(() => readInitialColorMode())
+  const [aiApiKey, setAiApiKey] = useState(() => readStoredValue(AI_API_KEY_STORAGE_KEY))
+  const [aiModel, setAiModel] = useState(() =>
+    readStoredValue(AI_MODEL_STORAGE_KEY, DEFAULT_OPENAI_MODEL),
+  )
+  const [aiReviewOverride, setAiReviewOverride] = useState<{
+    fingerprint: string
+    evaluation: AiEvaluation
+  } | null>(null)
+  const [aiReviewLoading, setAiReviewLoading] = useState(false)
+  const [aiReviewMessage, setAiReviewMessage] = useState(
+    'Local evaluation is active until you run an OpenAI review.',
+  )
   const [nextExperienceId, setNextExperienceId] = useState(() =>
     nextId(readInitialDraft().resume.experiences),
   )
@@ -341,9 +626,47 @@ function App() {
   }, [atsChecks])
 
   const scoreClass = atsScore >= 85 ? 'score-high' : atsScore >= 65 ? 'score-mid' : 'score-low'
+  const resumeFingerprint = useMemo(() => JSON.stringify(resume), [resume])
+
+  const heuristicAiEvaluation = useMemo(
+    () => buildHeuristicAiEvaluation(resume, filledExperiences, filledProjects, parsedSkills),
+    [filledExperiences, filledProjects, parsedSkills, resume],
+  )
+
+  const activeAiReview =
+    aiReviewOverride && aiReviewOverride.fingerprint === resumeFingerprint
+      ? aiReviewOverride.evaluation
+      : null
+
+  const aiEvaluation = activeAiReview ?? heuristicAiEvaluation
+
+  const aiScoreClass =
+    aiEvaluation.score >= 85 ? 'score-high' : aiEvaluation.score >= 65 ? 'score-mid' : 'score-low'
 
   const flashStatus = (message: string) => {
     setStatusMessage(message)
+  }
+
+  const switchColorMode = (mode: ColorMode) => {
+    if (mode === colorMode) {
+      return
+    }
+
+    const applyMode = () => setColorMode(mode)
+    const transitionDocument = document as TransitionCapableDocument
+
+    try {
+      const transition = transitionDocument.startViewTransition?.(() => {
+        applyMode()
+      })
+      if (transition) {
+        return
+      }
+    } catch {
+      // Some browsers expose the API but fail in restricted contexts.
+    }
+
+    applyMode()
   }
 
   const syncIds = (data: ResumeData) => {
@@ -375,6 +698,22 @@ function App() {
   }, [colorMode])
 
   useEffect(() => {
+    try {
+      localStorage.setItem(AI_API_KEY_STORAGE_KEY, aiApiKey)
+    } catch {
+      // Ignore storage errors to keep editing flow uninterrupted.
+    }
+  }, [aiApiKey])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(AI_MODEL_STORAGE_KEY, aiModel)
+    } catch {
+      // Ignore storage errors to keep editing flow uninterrupted.
+    }
+  }, [aiModel])
+
+  useEffect(() => {
     if (!statusMessage) {
       return
     }
@@ -388,6 +727,85 @@ function App() {
 
   const updateField = <K extends keyof ResumeData>(field: K, value: ResumeData[K]) => {
     setResume((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const runAiReview = async () => {
+    const apiKey = aiApiKey.trim()
+    const model = aiModel.trim() || DEFAULT_OPENAI_MODEL
+
+    if (!apiKey) {
+      setAiReviewOverride(null)
+      setAiReviewMessage('No API key detected. Showing the local evaluation instead.')
+      flashStatus('Add an OpenAI API key to run the live AI review.')
+      return
+    }
+
+    setAiReviewLoading(true)
+    setAiReviewMessage(`Running OpenAI review with ${model}...`)
+
+    try {
+      const reviewPayload = {
+        resume,
+        atsScore,
+        atsChecks,
+        heuristicAiEvaluation,
+      }
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0.2,
+          response_format: { type: 'json_object' },
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are an expert resume reviewer. Return only JSON with score, summary, and insights. Keep the eight insight ids in this exact order: contact, summary, impact, verbs, skills, projects, alignment, links. Each insight must include id, title, impact, pass, and feedback. Be strict, concrete, and concise.',
+            },
+            {
+              role: 'user',
+              content: `Review this resume and score it from 0 to 100. Use the supplied data and think like a senior recruiter, ATS system, and hiring manager at once.\n\n${JSON.stringify(reviewPayload, null, 2)}`,
+            },
+          ],
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(errorText || `OpenAI request failed with status ${response.status}`)
+      }
+
+      const payload = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string | null } }>
+      }
+
+      const content = payload.choices?.[0]?.message?.content
+      if (!content) {
+        throw new Error('OpenAI returned an empty response.')
+      }
+
+      const parsed = JSON.parse(content) as unknown
+      const normalized = normalizeAiEvaluation(parsed, heuristicAiEvaluation)
+
+      setAiReviewOverride({
+        fingerprint: resumeFingerprint,
+        evaluation: normalized,
+      })
+      setAiReviewMessage(`OpenAI review finished with ${model}.`)
+      flashStatus('OpenAI resume review completed.')
+    } catch (error) {
+      console.error(error)
+      setAiReviewOverride(null)
+      setAiReviewMessage('OpenAI review failed. Showing the local evaluation instead.')
+      flashStatus('OpenAI review failed. The local evaluation is still shown.')
+    } finally {
+      setAiReviewLoading(false)
+    }
   }
 
   const toggleSection = (section: keyof SectionVisibility) => {
@@ -710,11 +1128,11 @@ function App() {
           </p>
         </div>
         <div className="topbar-actions">
-          <div className="mode-switch" role="group" aria-label="Color mode">
+          <div className="mode-switch" role="group" aria-label="Color mode" data-mode={colorMode}>
             <button
               type="button"
               className={`mode-btn ${colorMode === 'light' ? 'active' : ''}`}
-              onClick={() => setColorMode('light')}
+              onClick={() => switchColorMode('light')}
               aria-pressed={colorMode === 'light'}
             >
               Light
@@ -722,7 +1140,7 @@ function App() {
             <button
               type="button"
               className={`mode-btn ${colorMode === 'dark' ? 'active' : ''}`}
-              onClick={() => setColorMode('dark')}
+              onClick={() => switchColorMode('dark')}
               aria-pressed={colorMode === 'dark'}
             >
               Dark
@@ -759,6 +1177,75 @@ function App() {
                     <strong className={check.pass ? 'check-pass' : 'check-fail'}>
                       {check.pass ? 'Good' : 'Needs Work'}
                     </strong>
+                  </li>
+                ))}
+              </ul>
+            </article>
+
+            <article className="ai-card">
+              <div className="ai-head">
+                <h3>AI Resume Evaluation</h3>
+                <span className={`score-pill ${aiScoreClass}`}>{aiEvaluation.score}%</span>
+              </div>
+              <p className="ai-summary">{aiEvaluation.summary}</p>
+              <div className="ai-meta-row">
+                <span className="ai-source-pill">
+                  {activeAiReview ? 'OpenAI API' : 'Local evaluator'}
+                </span>
+                <span className="ai-status-text">
+                  {activeAiReview
+                    ? aiReviewMessage
+                    : 'Local evaluation is active until you run an OpenAI review.'}
+                </span>
+              </div>
+              <div className="ai-controls">
+                <label>
+                  OpenAI API Key
+                  <input
+                    type="password"
+                    value={aiApiKey}
+                    onChange={(event) => setAiApiKey(event.target.value)}
+                    placeholder="sk-..."
+                    autoComplete="off"
+                  />
+                </label>
+                <label>
+                  Model
+                  <input
+                    value={aiModel}
+                    onChange={(event) => setAiModel(event.target.value)}
+                    placeholder={DEFAULT_OPENAI_MODEL}
+                    autoComplete="off"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="primary-btn ai-run-btn"
+                  onClick={runAiReview}
+                  disabled={aiReviewLoading}
+                >
+                  {aiReviewLoading
+                    ? 'Reviewing...'
+                    : aiApiKey.trim()
+                      ? 'Run OpenAI Review'
+                      : 'Use Local Review'}
+                </button>
+              </div>
+              <p className="ai-helper">
+                Your key is stored locally in this browser. If no key is set, the local evaluator remains active.
+              </p>
+              <ul className="ai-list">
+                {aiEvaluation.insights.map((insight) => (
+                  <li
+                    key={insight.id}
+                    className={`ai-item ${insight.pass ? 'ai-pass' : 'ai-fail'}`}
+                  >
+                    <div className="ai-item-head">
+                      <span className={`impact-pill impact-${insight.impact}`}>{insight.impact}</span>
+                      <strong>{insight.title}</strong>
+                      <span className="ai-result">{insight.pass ? 'Strong' : 'Improve'}</span>
+                    </div>
+                    <p>{insight.feedback}</p>
                   </li>
                 ))}
               </ul>
