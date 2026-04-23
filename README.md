@@ -8,6 +8,7 @@ A simplified and user-friendly resume maker website built with React + TypeScrip
 - Simple form fields for personal info, summary, skills, experience, and education
 - Add/remove controls for multiple experience and education entries
 - Accent color picker to personalize the resume
+- One-click theme switch: Liquid Glass or Ultra Minimal
 - Print-friendly export flow using browser print to save as PDF
 - Mobile-responsive UI
 

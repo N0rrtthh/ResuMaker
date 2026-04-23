@@ -29,6 +29,8 @@ type ResumeData = {
   education: Education[]
 }
 
+type ThemeMode = 'liquid' | 'minimal'
+
 const INITIAL_DATA: ResumeData = {
   fullName: 'Alex Morgan',
   title: 'Product Designer',
@@ -71,6 +73,7 @@ function App() {
   const [resume, setResume] = useState<ResumeData>(INITIAL_DATA)
   const [nextExperienceId, setNextExperienceId] = useState(3)
   const [nextEducationId, setNextEducationId] = useState(2)
+  const [themeMode, setThemeMode] = useState<ThemeMode>('liquid')
 
   const parsedSkills = useMemo(
     () =>
@@ -142,8 +145,14 @@ function App() {
     setNextEducationId(2)
   }
 
+  const isMinimalTheme = themeMode === 'minimal'
+
+  const toggleTheme = () => {
+    setThemeMode((prev) => (prev === 'liquid' ? 'minimal' : 'liquid'))
+  }
+
   return (
-    <div className="page-shell">
+    <div className={`page-shell ${isMinimalTheme ? 'theme-minimal' : 'theme-liquid'}`}>
       <div className="ambient ambient-one" aria-hidden="true" />
       <div className="ambient ambient-two" aria-hidden="true" />
       <div className="ambient ambient-three" aria-hidden="true" />
@@ -152,10 +161,22 @@ function App() {
         <div className="header-copy">
           <p className="tag">ResuMaker</p>
           <h1>Build your resume in minutes</h1>
-          <p className="subtitle">Minimal controls. Liquid-glass style. Instant live preview.</p>
+          <p className="subtitle">
+            {isMinimalTheme
+              ? 'Minimal controls. Ultra-clean layout. Instant live preview.'
+              : 'Minimal controls. Liquid-glass style. Instant live preview.'}
+          </p>
         </div>
         <div className="header-actions" role="group" aria-label="Resume actions">
           <p className="sync-pill">Live Sync Enabled</p>
+          <button
+            type="button"
+            className="secondary-btn theme-toggle"
+            onClick={toggleTheme}
+            aria-pressed={isMinimalTheme}
+          >
+            {isMinimalTheme ? 'Switch to Liquid Glass' : 'Switch to Ultra Minimal'}
+          </button>
           <button type="button" className="secondary-btn" onClick={resetTemplate}>
             Reset Template
           </button>
