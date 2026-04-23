@@ -54,9 +54,21 @@ type AtsCheck = {
   pass: boolean
 }
 
+type ColorMode = 'light' | 'dark'
+
 const STORAGE_KEY = 'resumaker-draft-v3'
+const COLOR_MODE_STORAGE_KEY = 'resumaker-color-mode-v1'
 
 const ACTION_VERBS = ['Led', 'Improved', 'Designed', 'Delivered', 'Optimized', 'Built']
+
+const TITLE_PRESETS = [
+  'Product Designer',
+  'Software Engineer',
+  'Frontend Developer',
+  'UI/UX Designer',
+  'Data Analyst',
+  'Project Manager',
+]
 
 const SECTION_LABELS: Record<keyof SectionVisibility, string> = {
   summary: 'Summary',
@@ -223,11 +235,25 @@ const readInitialDraft = (): {
   }
 }
 
+const readInitialColorMode = (): ColorMode => {
+  if (typeof window === 'undefined') {
+    return 'light'
+  }
+
+  const stored = localStorage.getItem(COLOR_MODE_STORAGE_KEY)
+  if (stored === 'light' || stored === 'dark') {
+    return stored
+  }
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
 function App() {
   const [resume, setResume] = useState<ResumeData>(() => readInitialDraft().resume)
   const [sectionVisibility, setSectionVisibility] = useState<SectionVisibility>(
     () => readInitialDraft().sectionVisibility,
   )
+  const [colorMode, setColorMode] = useState<ColorMode>(() => readInitialColorMode())
   const [nextExperienceId, setNextExperienceId] = useState(() =>
     nextId(readInitialDraft().resume.experiences),
   )
@@ -339,6 +365,14 @@ function App() {
       // If storage fails (quota/private mode), app keeps working without autosave.
     }
   }, [resume, sectionVisibility])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLOR_MODE_STORAGE_KEY, colorMode)
+    } catch {
+      // Ignore storage errors to keep editing flow uninterrupted.
+    }
+  }, [colorMode])
 
   useEffect(() => {
     if (!statusMessage) {
@@ -662,7 +696,7 @@ function App() {
   }
 
   return (
-    <div className="page-shell theme-liquid">
+    <div className={`page-shell theme-liquid mode-${colorMode}`}>
       <div className="ambient ambient-one" aria-hidden="true" />
       <div className="ambient ambient-two" aria-hidden="true" />
       <div className="ambient ambient-three" aria-hidden="true" />
@@ -671,16 +705,39 @@ function App() {
         <div className="header-copy">
           <p className="tag">ResuMaker</p>
           <h1>Build your resume in minutes</h1>
-          <p className="subtitle">Liquid-glass design. Real-time live preview. Print-ready output.</p>
+          <p className="subtitle">
+            Structured controls, better tooling, and real-time preview in a premium liquid-glass UI.
+          </p>
         </div>
-        <div className="header-actions" role="group" aria-label="Resume actions">
-          <p className="sync-pill">Live Preview Active</p>
-          <button type="button" className="secondary-btn" onClick={resetTemplate}>
-            Reset Template
-          </button>
-          <button type="button" className="primary-btn" onClick={() => window.print()}>
-            Print / Save PDF
-          </button>
+        <div className="topbar-actions">
+          <div className="mode-switch" role="group" aria-label="Color mode">
+            <button
+              type="button"
+              className={`mode-btn ${colorMode === 'light' ? 'active' : ''}`}
+              onClick={() => setColorMode('light')}
+              aria-pressed={colorMode === 'light'}
+            >
+              Light
+            </button>
+            <button
+              type="button"
+              className={`mode-btn ${colorMode === 'dark' ? 'active' : ''}`}
+              onClick={() => setColorMode('dark')}
+              aria-pressed={colorMode === 'dark'}
+            >
+              Dark
+            </button>
+          </div>
+
+          <div className="header-actions" role="group" aria-label="Resume actions">
+            <p className="sync-pill">Live Preview Active</p>
+            <button type="button" className="secondary-btn" onClick={resetTemplate}>
+              Reset Template
+            </button>
+            <button type="button" className="primary-btn" onClick={() => window.print()}>
+              Print / Save PDF
+            </button>
+          </div>
         </div>
       </header>
 
@@ -689,65 +746,80 @@ function App() {
           <h2>Simple Controls</h2>
           <p className="panel-meta">Update your details and watch the preview refresh instantly.</p>
 
-          <article className="ats-card">
-            <div className="ats-head">
-              <h3>Resume Quality Score</h3>
-              <span className={`score-pill ${scoreClass}`}>{atsScore}%</span>
-            </div>
-            <ul className="ats-list">
-              {atsChecks.map((check) => (
-                <li key={check.label}>
-                  <span>{check.label}</span>
-                  <strong className={check.pass ? 'check-pass' : 'check-fail'}>
-                    {check.pass ? 'Good' : 'Needs Work'}
-                  </strong>
-                </li>
-              ))}
-            </ul>
-          </article>
+          <div className="overview-grid">
+            <article className="ats-card">
+              <div className="ats-head">
+                <h3>Resume Quality Score</h3>
+                <span className={`score-pill ${scoreClass}`}>{atsScore}%</span>
+              </div>
+              <ul className="ats-list">
+                {atsChecks.map((check) => (
+                  <li key={check.label}>
+                    <span>{check.label}</span>
+                    <strong className={check.pass ? 'check-pass' : 'check-fail'}>
+                      {check.pass ? 'Good' : 'Needs Work'}
+                    </strong>
+                  </li>
+                ))}
+              </ul>
+            </article>
 
-          <div className="tools-row" role="group" aria-label="Productivity tools">
-            <button type="button" className="tool-btn" onClick={generateSummary}>
-              Generate Summary
-            </button>
-            <button type="button" className="tool-btn" onClick={saveDraft}>
-              Save Draft
-            </button>
-            <button type="button" className="tool-btn" onClick={loadDraft}>
-              Load Draft
-            </button>
-            <button type="button" className="tool-btn" onClick={exportJson}>
-              Export JSON
-            </button>
-            <button type="button" className="tool-btn" onClick={triggerImport}>
-              Import JSON
-            </button>
-            <button type="button" className="tool-btn" onClick={copyPlainText}>
-              Copy Plain Text
-            </button>
-            <input
-              ref={importInputRef}
-              type="file"
-              accept="application/json"
-              className="hidden-file"
-              onChange={handleImportJson}
-            />
-          </div>
+            <article className="toolkit-card">
+              <h3>Builder Toolkit</h3>
+              <p>Quick actions to generate, save, import, and export your resume content.</p>
 
-          {statusMessage ? <p className="status-note">{statusMessage}</p> : null}
-
-          <div className="visibility-grid">
-            {(Object.keys(SECTION_LABELS) as Array<keyof SectionVisibility>).map((section) => (
-              <label className="visibility-chip" key={section}>
+              <div className="tools-row" role="group" aria-label="Productivity tools">
+                <button type="button" className="tool-btn" onClick={generateSummary}>
+                  Generate Summary
+                </button>
+                <button type="button" className="tool-btn" onClick={saveDraft}>
+                  Save Draft
+                </button>
+                <button type="button" className="tool-btn" onClick={loadDraft}>
+                  Load Draft
+                </button>
+                <button type="button" className="tool-btn" onClick={exportJson}>
+                  Export JSON
+                </button>
+                <button type="button" className="tool-btn" onClick={triggerImport}>
+                  Import JSON
+                </button>
+                <button type="button" className="tool-btn" onClick={copyPlainText}>
+                  Copy Plain Text
+                </button>
                 <input
-                  type="checkbox"
-                  checked={sectionVisibility[section]}
-                  onChange={() => toggleSection(section)}
+                  ref={importInputRef}
+                  type="file"
+                  accept="application/json"
+                  className="hidden-file"
+                  onChange={handleImportJson}
                 />
-                {SECTION_LABELS[section]}
-              </label>
-            ))}
+              </div>
+
+              {statusMessage ? (
+                <p className="status-note">{statusMessage}</p>
+              ) : (
+                <p className="status-note subtle">Autosave is enabled for this browser.</p>
+              )}
+            </article>
           </div>
+
+          <article className="visibility-card">
+            <h3>Section Layout</h3>
+            <p>Toggle sections on or off based on the job you are applying for.</p>
+            <div className="visibility-grid">
+              {(Object.keys(SECTION_LABELS) as Array<keyof SectionVisibility>).map((section) => (
+                <label className="visibility-chip" key={section}>
+                  <input
+                    type="checkbox"
+                    checked={sectionVisibility[section]}
+                    onChange={() => toggleSection(section)}
+                  />
+                  {SECTION_LABELS[section]}
+                </label>
+              ))}
+            </div>
+          </article>
 
           <div className="field-grid">
             <label>
@@ -809,6 +881,22 @@ function App() {
                 placeholder="linkedin.com/in/yourname"
               />
             </label>
+          </div>
+
+          <div className="title-presets">
+            <p>Quick Title Buttons</p>
+            <div className="title-preset-row">
+              {TITLE_PRESETS.map((preset) => (
+                <button
+                  type="button"
+                  key={preset}
+                  className={`title-chip ${resume.title === preset ? 'active' : ''}`}
+                  onClick={() => updateField('title', preset)}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
           </div>
 
           <label>
