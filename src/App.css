@@ -40,7 +40,7 @@
   min-height: 100vh;
   position: relative;
   overflow: hidden;
-  padding: 24px;
+  padding: 16px;
   background: var(--bg);
   color: var(--text);
   transition:
@@ -148,7 +148,7 @@
 }
 
 .topbar {
-  max-width: 1280px;
+  max-width: 1540px;
   margin: 0 auto 14px;
   border-radius: 24px;
   padding: 20px 24px;
@@ -429,11 +429,11 @@
 }
 
 .workspace {
-  max-width: 1280px;
+  max-width: 1540px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(360px, 1.08fr) minmax(340px, 0.92fr);
-  gap: 14px;
+  grid-template-columns: minmax(420px, 1.25fr) minmax(360px, 0.95fr);
+  gap: 12px;
   align-items: start;
   position: relative;
   z-index: 1;
@@ -441,8 +441,8 @@
 
 .editor-panel,
 .preview-panel {
-  border-radius: 24px;
-  padding: 18px;
+  border-radius: 22px;
+  padding: 16px;
   border: 1px solid var(--panel-border);
   background: var(--panel-bg);
   box-shadow: var(--panel-shadow);
@@ -457,7 +457,7 @@
 }
 
 .editor-panel {
-  max-height: calc(100vh - 154px);
+  max-height: calc(100vh - 132px);
   overflow: auto;
   animation: panel-slide-left 760ms var(--motion-smooth) both;
 }
@@ -491,11 +491,11 @@
 }
 
 .editor-panel-intro {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .control-section {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--card-border) 90%, transparent);
   background: linear-gradient(
@@ -506,7 +506,7 @@
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.45),
     0 14px 24px color-mix(in srgb, var(--elev-color) 28%, transparent);
-  padding: 12px;
+  padding: 10px;
 }
 
 .control-section:last-child {
@@ -531,6 +531,67 @@
 
 .section-heading {
   margin-bottom: 10px;
+}
+
+.section-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.section-toggle-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.section-toggle-icon {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--chip-border);
+  background: color-mix(in srgb, var(--chip-bg) 86%, transparent);
+  color: var(--chip-text);
+  font-weight: 700;
+  transition: transform 260ms var(--motion-gentle), background 260ms ease;
+}
+
+.section-toggle:hover .section-toggle-icon {
+  transform: scale(1.04);
+}
+
+.section-body {
+  display: grid;
+  gap: 10px;
+  overflow: hidden;
+  max-height: 4000px;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    max-height 420ms var(--motion-smooth),
+    opacity 300ms ease,
+    transform 420ms var(--motion-smooth),
+    padding 360ms var(--motion-smooth),
+    margin 360ms var(--motion-smooth);
+}
+
+.control-section.collapsed .section-body {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-top: 0;
+  pointer-events: none;
 }
 
 .section-kicker {
@@ -966,7 +1027,7 @@
 }
 
 .form-block {
-  margin-bottom: 11px;
+  margin-bottom: 10px;
   border-radius: 16px;
   border: 1px solid var(--card-border);
   background: color-mix(in srgb, var(--card-bg) 88%, transparent);
@@ -1155,9 +1216,9 @@ input[type='color'] {
 .resume {
   --accent: #3b82f6;
   width: 100%;
-  max-width: 740px;
+  max-width: 860px;
   margin: 0 auto;
-  padding: 28px;
+  padding: 26px;
   border-radius: 20px;
   border: 1px solid var(--resume-border);
   background: var(--resume-bg);
@@ -1349,6 +1410,20 @@ input[type='color'] {
 }
 
 @media (max-width: 1200px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-panel {
+    order: 1;
+    position: static;
+  }
+
+  .editor-panel {
+    order: 2;
+    max-height: none;
+  }
+
   .toolkit-groups {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1376,7 +1451,7 @@ input[type='color'] {
 
 @media (max-width: 760px) {
   .page-shell {
-    padding: 12px;
+    padding: 10px;
   }
 
   .control-section {
@@ -1442,7 +1517,7 @@ input[type='color'] {
 
   .resume {
     border-radius: 16px;
-    padding: 18px;
+    padding: 16px;
   }
 
   .resume h3 {

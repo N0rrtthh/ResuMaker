@@ -55,6 +55,9 @@ type AtsCheck = {
 }
 
 type ColorMode = 'light' | 'dark'
+type AiProvider = 'local' | 'openai' | 'ollama'
+type EditorPanelSection = 'evaluation' | 'toolkit' | 'layout' | 'content'
+type EditorPanelCollapsedState = Record<EditorPanelSection, boolean>
 
 type AiInsightImpact = 'high' | 'medium' | 'low'
 
@@ -82,7 +85,12 @@ const STORAGE_KEY = 'resumaker-draft-v3'
 const COLOR_MODE_STORAGE_KEY = 'resumaker-color-mode-v1'
 const AI_API_KEY_STORAGE_KEY = 'resumaker-openai-api-key-v1'
 const AI_MODEL_STORAGE_KEY = 'resumaker-openai-model-v1'
+const AI_PROVIDER_STORAGE_KEY = 'resumaker-ai-provider-v1'
+const OLLAMA_URL_STORAGE_KEY = 'resumaker-ollama-url-v1'
+const EDITOR_SECTIONS_STORAGE_KEY = 'resumaker-editor-sections-v1'
 const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
+const DEFAULT_OLLAMA_MODEL = 'llama3.2:3b'
+const DEFAULT_OLLAMA_URL = 'http://localhost:11434'
 
 const ACTION_VERBS = ['Led', 'Improved', 'Designed', 'Delivered', 'Optimized', 'Built']
 
@@ -109,6 +117,13 @@ const INITIAL_SECTION_VISIBILITY: SectionVisibility = {
   projects: true,
   education: true,
   skills: true,
+}
+
+const INITIAL_EDITOR_SECTIONS: EditorPanelCollapsedState = {
+  evaluation: false,
+  toolkit: false,
+  layout: false,
+  content: false,
 }
 
 const INITIAL_DATA: ResumeData = {
@@ -526,10 +541,37 @@ function App() {
   const [sectionVisibility, setSectionVisibility] = useState<SectionVisibility>(
     () => readInitialDraft().sectionVisibility,
   )
+  const [editorSections, setEditorSections] = useState<EditorPanelCollapsedState>(() => {
+    if (typeof window === 'undefined') {
+      return INITIAL_EDITOR_SECTIONS
+    }
+
+    try {
+      const saved = localStorage.getItem(EDITOR_SECTIONS_STORAGE_KEY)
+      if (!saved) {
+        return INITIAL_EDITOR_SECTIONS
+      }
+
+      return { ...INITIAL_EDITOR_SECTIONS, ...(JSON.parse(saved) as Partial<EditorPanelCollapsedState>) }
+    } catch {
+      return INITIAL_EDITOR_SECTIONS
+    }
+  })
   const [colorMode, setColorMode] = useState<ColorMode>(() => readInitialColorMode())
+  const [aiProvider, setAiProvider] = useState<AiProvider>(() => {
+    if (typeof window === 'undefined') {
+      return 'local'
+    }
+
+    const saved = localStorage.getItem(AI_PROVIDER_STORAGE_KEY)
+    return saved === 'openai' || saved === 'ollama' ? saved : 'local'
+  })
   const [aiApiKey, setAiApiKey] = useState(() => readStoredValue(AI_API_KEY_STORAGE_KEY))
   const [aiModel, setAiModel] = useState(() =>
     readStoredValue(AI_MODEL_STORAGE_KEY, DEFAULT_OPENAI_MODEL),
+  )
+  const [ollamaUrl, setOllamaUrl] = useState(() =>
+    readStoredValue(OLLAMA_URL_STORAGE_KEY, DEFAULT_OLLAMA_URL),
   )
   const [aiReviewOverride, setAiReviewOverride] = useState<{
     fingerprint: string
@@ -647,6 +689,10 @@ function App() {
     setStatusMessage(message)
   }
 
+  const toggleEditorSection = (section: EditorPanelSection) => {
+    setEditorSections((prev) => ({ ...prev, [section]: !prev[section] }))
+  }
+
   const switchColorMode = (mode: ColorMode) => {
     if (mode === colorMode) {
       return
@@ -699,6 +745,30 @@ function App() {
 
   useEffect(() => {
     try {
+      localStorage.setItem(AI_PROVIDER_STORAGE_KEY, aiProvider)
+    } catch {
+      // Ignore storage errors to keep editing flow uninterrupted.
+    }
+  }, [aiProvider])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(OLLAMA_URL_STORAGE_KEY, ollamaUrl)
+    } catch {
+      // Ignore storage errors to keep editing flow uninterrupted.
+    }
+  }, [ollamaUrl])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(EDITOR_SECTIONS_STORAGE_KEY, JSON.stringify(editorSections))
+    } catch {
+      // Ignore storage errors to keep editing flow uninterrupted.
+    }
+  }, [editorSections])
+
+  useEffect(() => {
+    try {
       localStorage.setItem(AI_API_KEY_STORAGE_KEY, aiApiKey)
     } catch {
       // Ignore storage errors to keep editing flow uninterrupted.
@@ -730,6 +800,85 @@ function App() {
   }
 
   const runAiReview = async () => {
+    const reviewPayload = {
+      resume,
+      atsScore,
+      atsChecks,
+      heuristicAiEvaluation,
+    }
+
+    if (aiProvider === 'local') {
+      setAiReviewOverride(null)
+      setAiReviewMessage('Free local evaluation is active. No API key needed.')
+      flashStatus('Using free local evaluation mode.')
+      return
+    }
+
+    if (aiProvider === 'ollama') {
+      const ollamaEndpoint = ollamaUrl.trim() || DEFAULT_OLLAMA_URL
+      const model = aiModel.trim() || DEFAULT_OLLAMA_MODEL
+
+      setAiReviewLoading(true)
+      setAiReviewMessage(`Running Ollama review with ${model}...`)
+
+      try {
+        const response = await fetch(`${ollamaEndpoint.replace(/\/$/, '')}/api/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model,
+            stream: false,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You are an expert resume reviewer. Return only JSON with score, summary, and insights. Keep the eight insight ids in this exact order: contact, summary, impact, verbs, skills, projects, alignment, links. Each insight must include id, title, impact, pass, and feedback. Be strict, concrete, and concise.',
+              },
+              {
+                role: 'user',
+                content: `Review this resume and score it from 0 to 100. Use the supplied data and think like a senior recruiter, ATS system, and hiring manager at once.\n\n${JSON.stringify(reviewPayload, null, 2)}`,
+              },
+            ],
+            format: 'json',
+          }),
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(errorText || `Ollama request failed with status ${response.status}`)
+        }
+
+        const payload = (await response.json()) as {
+          message?: { content?: string | null }
+        }
+
+        const content = payload.message?.content
+        if (!content) {
+          throw new Error('Ollama returned an empty response.')
+        }
+
+        const parsed = JSON.parse(content) as unknown
+        const normalized = normalizeAiEvaluation(parsed, heuristicAiEvaluation)
+
+        setAiReviewOverride({
+          fingerprint: resumeFingerprint,
+          evaluation: normalized,
+        })
+        setAiReviewMessage(`Ollama review finished with ${model}.`)
+        flashStatus('Ollama resume review completed.')
+      } catch (error) {
+        console.error(error)
+        setAiReviewOverride(null)
+        setAiReviewMessage('Ollama review failed. Showing the local evaluation instead.')
+        flashStatus('Ollama review failed. The local evaluation is still shown.')
+      } finally {
+        setAiReviewLoading(false)
+      }
+      return
+    }
+
     const apiKey = aiApiKey.trim()
     const model = aiModel.trim() || DEFAULT_OPENAI_MODEL
 
@@ -744,13 +893,6 @@ function App() {
     setAiReviewMessage(`Running OpenAI review with ${model}...`)
 
     try {
-      const reviewPayload = {
-        resume,
-        atsScore,
-        atsChecks,
-        heuristicAiEvaluation,
-      }
-
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -1168,14 +1310,26 @@ function App() {
             </p>
           </div>
 
-          <section className="control-section section-evaluation">
+          <section className={`control-section section-evaluation ${editorSections.evaluation ? 'collapsed' : ''}`}>
             <div className="section-heading">
-              <p className="section-kicker">Section 01</p>
-              <h3>Evaluation Lab</h3>
-              <p>Quality scoring and AI review are isolated here for cleaner workflow.</p>
+              <button
+                type="button"
+                className="section-toggle"
+                onClick={() => toggleEditorSection('evaluation')}
+                aria-expanded={!editorSections.evaluation}
+              >
+                <span className="section-toggle-copy">
+                  <p className="section-kicker">Section 01</p>
+                  <h3>Evaluation Lab</h3>
+                  <p>Quality scoring and AI review are isolated here for cleaner workflow.</p>
+                </span>
+                <span className="section-toggle-icon" aria-hidden="true">
+                  {editorSections.evaluation ? '▸' : '▾'}
+                </span>
+              </button>
             </div>
 
-            <div className="evaluation-grid">
+            <div className="section-body evaluation-grid">
               <article className="ats-card">
                 <div className="ats-head">
                   <h3>Resume Quality Score</h3>
@@ -1211,6 +1365,17 @@ function App() {
                 </div>
                 <div className="ai-controls">
                   <label>
+                    AI Provider
+                    <select
+                      value={aiProvider}
+                      onChange={(event) => setAiProvider(event.target.value as AiProvider)}
+                    >
+                      <option value="local">Free Local Mode</option>
+                      <option value="ollama">Ollama Local Server</option>
+                      <option value="openai">OpenAI API</option>
+                    </select>
+                  </label>
+                  <label>
                     OpenAI API Key (optional)
                     <input
                       type="password"
@@ -1229,6 +1394,15 @@ function App() {
                       autoComplete="off"
                     />
                   </label>
+                  <label>
+                    Ollama URL
+                    <input
+                      value={ollamaUrl}
+                      onChange={(event) => setOllamaUrl(event.target.value)}
+                      placeholder={DEFAULT_OLLAMA_URL}
+                      autoComplete="off"
+                    />
+                  </label>
                   <button
                     type="button"
                     className="primary-btn ai-run-btn"
@@ -1237,13 +1411,15 @@ function App() {
                   >
                     {aiReviewLoading
                       ? 'Reviewing...'
-                      : aiApiKey.trim()
+                      : aiProvider === 'openai' && aiApiKey.trim()
                         ? 'Run Live OpenAI Review'
-                        : 'Use Free Local Review'}
+                        : aiProvider === 'ollama'
+                          ? 'Run Ollama Review'
+                          : 'Use Free Local Review'}
                   </button>
                 </div>
                 <p className="ai-helper">
-                  Free mode is built-in and private in your browser. OpenAI mode is optional and key-based.
+                  Free mode is built-in and private in your browser. Ollama can run locally without an API key.
                 </p>
                 <details className="api-help">
                   <summary>How to get an OpenAI key (and free credits if available)</summary>
@@ -1254,7 +1430,7 @@ function App() {
                   </ol>
                   <p>
                     Trial credits are not guaranteed for every account. If none are available, keep using
-                    the free local mode.
+                    the free local mode or run Ollama locally with a downloaded model.
                   </p>
                 </details>
                 <ul className="ai-list">
@@ -1276,14 +1452,26 @@ function App() {
             </div>
           </section>
 
-          <section className="control-section section-toolkit">
+          <section className={`control-section section-toolkit ${editorSections.toolkit ? 'collapsed' : ''}`}>
             <div className="section-heading">
-              <p className="section-kicker">Section 02</p>
-              <h3>Builder Toolkit</h3>
-              <p>Productivity actions are grouped separately from scoring and editing.</p>
+              <button
+                type="button"
+                className="section-toggle"
+                onClick={() => toggleEditorSection('toolkit')}
+                aria-expanded={!editorSections.toolkit}
+              >
+                <span className="section-toggle-copy">
+                  <p className="section-kicker">Section 02</p>
+                  <h3>Builder Toolkit</h3>
+                  <p>Productivity actions are grouped separately from scoring and editing.</p>
+                </span>
+                <span className="section-toggle-icon" aria-hidden="true">
+                  {editorSections.toolkit ? '▸' : '▾'}
+                </span>
+              </button>
             </div>
 
-            <article className="toolkit-card toolkit-shell">
+            <article className="toolkit-card toolkit-shell section-body">
               <div className="toolkit-groups" role="group" aria-label="Builder toolkit groups">
                 <div className="tool-group">
                   <p className="tool-group-title">Writing</p>
@@ -1338,14 +1526,26 @@ function App() {
             </article>
           </section>
 
-          <section className="control-section section-layout">
+          <section className={`control-section section-layout ${editorSections.layout ? 'collapsed' : ''}`}>
             <div className="section-heading">
-              <p className="section-kicker">Section 03</p>
-              <h3>Section Layout</h3>
-              <p>Toggle visibility per application and keep only role-relevant sections.</p>
+              <button
+                type="button"
+                className="section-toggle"
+                onClick={() => toggleEditorSection('layout')}
+                aria-expanded={!editorSections.layout}
+              >
+                <span className="section-toggle-copy">
+                  <p className="section-kicker">Section 03</p>
+                  <h3>Section Layout</h3>
+                  <p>Toggle visibility per application and keep only role-relevant sections.</p>
+                </span>
+                <span className="section-toggle-icon" aria-hidden="true">
+                  {editorSections.layout ? '▸' : '▾'}
+                </span>
+              </button>
             </div>
 
-            <article className="visibility-card">
+            <article className="visibility-card section-body">
               <div className="visibility-grid">
                 {(Object.keys(SECTION_LABELS) as Array<keyof SectionVisibility>).map((section) => (
                   <label className="visibility-chip" key={section}>
@@ -1361,13 +1561,26 @@ function App() {
             </article>
           </section>
 
-          <section className="control-section section-content">
+          <section className={`control-section section-content ${editorSections.content ? 'collapsed' : ''}`}>
             <div className="section-heading">
-              <p className="section-kicker">Section 04</p>
-              <h3>Resume Content Builder</h3>
-              <p>Profile details and resume sections are grouped into focused edit blocks.</p>
+              <button
+                type="button"
+                className="section-toggle"
+                onClick={() => toggleEditorSection('content')}
+                aria-expanded={!editorSections.content}
+              >
+                <span className="section-toggle-copy">
+                  <p className="section-kicker">Section 04</p>
+                  <h3>Resume Content Builder</h3>
+                  <p>Profile details and resume sections are grouped into focused edit blocks.</p>
+                </span>
+                <span className="section-toggle-icon" aria-hidden="true">
+                  {editorSections.content ? '▸' : '▾'}
+                </span>
+              </button>
             </div>
 
+            <div className="section-body">
             <article className="form-block">
               <h4>Profile Basics</h4>
               <div className="field-grid">
@@ -1646,6 +1859,7 @@ function App() {
                 </article>
               ))}
             </article>
+            </div>
           </section>
         </section>
 
