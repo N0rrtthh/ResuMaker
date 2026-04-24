@@ -40,6 +40,19 @@ npm run build
 npm run preview
 ```
 
+## Deploy to GitHub Pages
+
+This repository is configured to deploy with GitHub Actions.
+
+1. Push to the `main` branch.
+2. In GitHub, open Settings -> Pages.
+3. Set Source to `GitHub Actions`.
+4. Wait for the `Deploy to GitHub Pages` workflow to finish.
+
+Your site will be available at:
+
+`https://n0rrtthh.github.io/ResuMaker/`
+
 ## Tech stack
 
 - React 19
