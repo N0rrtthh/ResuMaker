@@ -1246,6 +1246,92 @@ function App() {
     return lines.filter(Boolean).join('\n')
   }
 
+  const createAtsFriendlyResume = () => {
+    const lines: string[] = []
+
+    lines.push(resume.fullName || 'Your Name')
+    lines.push(resume.title || 'Professional Title')
+    lines.push(resume.email.trim())
+    lines.push(resume.phone.trim())
+    lines.push(resume.location.trim())
+
+    if (resume.website.trim()) {
+      lines.push(resume.website.trim())
+    }
+
+    if (resume.linkedin.trim()) {
+      lines.push(resume.linkedin.trim())
+    }
+
+    lines.push('')
+
+    if (sectionVisibility.summary && resume.summary.trim()) {
+      lines.push('SUMMARY')
+      lines.push(resume.summary.trim())
+      lines.push('')
+    }
+
+    if (sectionVisibility.skills && parsedSkills.length) {
+      lines.push('SKILLS')
+      lines.push(parsedSkills.join(', '))
+      lines.push('')
+    }
+
+    if (sectionVisibility.experience && filledExperiences.length) {
+      lines.push('EXPERIENCE')
+      filledExperiences.forEach((exp) => {
+        lines.push(`${exp.role || 'Role'} - ${exp.company || 'Company'} (${exp.period || 'Period'})`)
+        if (exp.details.trim()) {
+          exp.details
+            .split(/[\r\n]+/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .forEach((line) => {
+              lines.push(`- ${line}`)
+            })
+        }
+        lines.push('')
+      })
+    }
+
+    if (sectionVisibility.projects && filledProjects.length) {
+      lines.push('PROJECTS')
+      filledProjects.forEach((project) => {
+        lines.push(`${project.name || 'Project'} (${project.period || 'Period'})`)
+        if (project.tech.trim()) {
+          lines.push(`Tech: ${project.tech.trim()}`)
+        }
+        if (project.link.trim()) {
+          lines.push(`Link: ${normalizeUrl(project.link.trim())}`)
+        }
+        if (project.details.trim()) {
+          project.details
+            .split(/[\r\n]+/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .forEach((line) => {
+              lines.push(`- ${line}`)
+            })
+        }
+        lines.push('')
+      })
+    }
+
+    if (sectionVisibility.education && filledEducation.length) {
+      lines.push('EDUCATION')
+      filledEducation.forEach((item) => {
+        lines.push(`${item.degree || 'Degree'} - ${item.school || 'School'} (${item.period || 'Period'})`)
+      })
+      lines.push('')
+    }
+
+    return lines
+      .map((line) => line.replace(/\s+/g, ' ').trimEnd())
+      .filter((line, index, array) => !(line === '' && array[index - 1] === ''))
+      .join('\n')
+      .trim()
+  }
+
   const copyPlainText = async () => {
     try {
       await navigator.clipboard.writeText(createPlainTextResume())
@@ -1253,6 +1339,26 @@ function App() {
     } catch {
       flashStatus('Could not copy automatically. Try again in a secure browser context.')
     }
+  }
+
+  const copyAtsResume = async () => {
+    try {
+      await navigator.clipboard.writeText(createAtsFriendlyResume())
+      flashStatus('ATS-friendly resume copied to clipboard.')
+    } catch {
+      flashStatus('Could not copy ATS resume automatically. Try again in a secure browser context.')
+    }
+  }
+
+  const downloadAtsResume = () => {
+    const blob = new Blob([createAtsFriendlyResume()], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `${(resume.fullName || 'resume').replace(/\s+/g, '-').toLowerCase()}-ats.txt`
+    anchor.click()
+    URL.revokeObjectURL(url)
+    flashStatus('ATS-friendly text resume downloaded.')
   }
 
   return (
@@ -1479,6 +1585,12 @@ function App() {
                     <button type="button" className="tool-btn" onClick={generateSummary}>
                       Generate Summary
                     </button>
+                    <button type="button" className="tool-btn" onClick={copyAtsResume}>
+                      Copy ATS Resume
+                    </button>
+                    <button type="button" className="tool-btn" onClick={downloadAtsResume}>
+                      Download ATS TXT
+                    </button>
                     <button type="button" className="tool-btn" onClick={copyPlainText}>
                       Copy Plain Text
                     </button>
@@ -1521,7 +1633,7 @@ function App() {
               {statusMessage ? (
                 <p className="status-note">{statusMessage}</p>
               ) : (
-                <p className="status-note subtle">Autosave is enabled for this browser.</p>
+                <p className="status-note subtle">Autosave is enabled for this browser. Use ATS TXT export for a parser-friendly version.</p>
               )}
             </article>
           </section>
