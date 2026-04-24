@@ -1161,127 +1161,174 @@ function App() {
 
       <main className="workspace">
         <section className="editor-panel">
-          <h2>Simple Controls</h2>
-          <p className="panel-meta">Update your details and watch the preview refresh instantly.</p>
+          <div className="editor-panel-intro">
+            <h2>Resume Control Center</h2>
+            <p className="panel-meta">
+              Every tool is now separated by purpose: evaluation, builder toolkit, layout, and content.
+            </p>
+          </div>
 
-          <div className="overview-grid">
-            <article className="ats-card">
-              <div className="ats-head">
-                <h3>Resume Quality Score</h3>
-                <span className={`score-pill ${scoreClass}`}>{atsScore}%</span>
-              </div>
-              <ul className="ats-list">
-                {atsChecks.map((check) => (
-                  <li key={check.label}>
-                    <span>{check.label}</span>
-                    <strong className={check.pass ? 'check-pass' : 'check-fail'}>
-                      {check.pass ? 'Good' : 'Needs Work'}
-                    </strong>
-                  </li>
-                ))}
-              </ul>
-            </article>
+          <section className="control-section section-evaluation">
+            <div className="section-heading">
+              <p className="section-kicker">Section 01</p>
+              <h3>Evaluation Lab</h3>
+              <p>Quality scoring and AI review are isolated here for cleaner workflow.</p>
+            </div>
 
-            <article className="ai-card">
-              <div className="ai-head">
-                <h3>AI Resume Evaluation</h3>
-                <span className={`score-pill ${aiScoreClass}`}>{aiEvaluation.score}%</span>
-              </div>
-              <p className="ai-summary">{aiEvaluation.summary}</p>
-              <div className="ai-meta-row">
-                <span className="ai-source-pill">
-                  {activeAiReview ? 'OpenAI API' : 'Local evaluator'}
-                </span>
-                <span className="ai-status-text">
-                  {activeAiReview
-                    ? aiReviewMessage
-                    : 'Local evaluation is active until you run an OpenAI review.'}
-                </span>
-              </div>
-              <div className="ai-controls">
-                <label>
-                  OpenAI API Key
-                  <input
-                    type="password"
-                    value={aiApiKey}
-                    onChange={(event) => setAiApiKey(event.target.value)}
-                    placeholder="sk-..."
-                    autoComplete="off"
-                  />
-                </label>
-                <label>
-                  Model
-                  <input
-                    value={aiModel}
-                    onChange={(event) => setAiModel(event.target.value)}
-                    placeholder={DEFAULT_OPENAI_MODEL}
-                    autoComplete="off"
-                  />
-                </label>
-                <button
-                  type="button"
-                  className="primary-btn ai-run-btn"
-                  onClick={runAiReview}
-                  disabled={aiReviewLoading}
-                >
-                  {aiReviewLoading
-                    ? 'Reviewing...'
-                    : aiApiKey.trim()
-                      ? 'Run OpenAI Review'
-                      : 'Use Local Review'}
-                </button>
-              </div>
-              <p className="ai-helper">
-                Your key is stored locally in this browser. If no key is set, the local evaluator remains active.
-              </p>
-              <ul className="ai-list">
-                {aiEvaluation.insights.map((insight) => (
-                  <li
-                    key={insight.id}
-                    className={`ai-item ${insight.pass ? 'ai-pass' : 'ai-fail'}`}
+            <div className="evaluation-grid">
+              <article className="ats-card">
+                <div className="ats-head">
+                  <h3>Resume Quality Score</h3>
+                  <span className={`score-pill ${scoreClass}`}>{atsScore}%</span>
+                </div>
+                <ul className="ats-list">
+                  {atsChecks.map((check) => (
+                    <li key={check.label}>
+                      <span>{check.label}</span>
+                      <strong className={check.pass ? 'check-pass' : 'check-fail'}>
+                        {check.pass ? 'Good' : 'Needs Work'}
+                      </strong>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+
+              <article className="ai-card">
+                <div className="ai-head">
+                  <h3>AI Resume Evaluation</h3>
+                  <span className={`score-pill ${aiScoreClass}`}>{aiEvaluation.score}%</span>
+                </div>
+                <p className="ai-summary">{aiEvaluation.summary}</p>
+                <div className="ai-meta-row">
+                  <span className="ai-source-pill">
+                    {activeAiReview ? 'OpenAI Live Review' : 'Free Local Mode'}
+                  </span>
+                  <span className="ai-status-text">
+                    {activeAiReview
+                      ? aiReviewMessage
+                      : 'No API key needed. Free local evaluator is active right now.'}
+                  </span>
+                </div>
+                <div className="ai-controls">
+                  <label>
+                    OpenAI API Key (optional)
+                    <input
+                      type="password"
+                      value={aiApiKey}
+                      onChange={(event) => setAiApiKey(event.target.value)}
+                      placeholder="Leave blank to keep free local mode"
+                      autoComplete="off"
+                    />
+                  </label>
+                  <label>
+                    Model
+                    <input
+                      value={aiModel}
+                      onChange={(event) => setAiModel(event.target.value)}
+                      placeholder={DEFAULT_OPENAI_MODEL}
+                      autoComplete="off"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="primary-btn ai-run-btn"
+                    onClick={runAiReview}
+                    disabled={aiReviewLoading}
                   >
-                    <div className="ai-item-head">
-                      <span className={`impact-pill impact-${insight.impact}`}>{insight.impact}</span>
-                      <strong>{insight.title}</strong>
-                      <span className="ai-result">{insight.pass ? 'Strong' : 'Improve'}</span>
-                    </div>
-                    <p>{insight.feedback}</p>
-                  </li>
-                ))}
-              </ul>
-            </article>
+                    {aiReviewLoading
+                      ? 'Reviewing...'
+                      : aiApiKey.trim()
+                        ? 'Run Live OpenAI Review'
+                        : 'Use Free Local Review'}
+                  </button>
+                </div>
+                <p className="ai-helper">
+                  Free mode is built-in and private in your browser. OpenAI mode is optional and key-based.
+                </p>
+                <details className="api-help">
+                  <summary>How to get an OpenAI key (and free credits if available)</summary>
+                  <ol>
+                    <li>Create an account at platform.openai.com and open your dashboard.</li>
+                    <li>Go to Billing and check whether your account has trial credits.</li>
+                    <li>Open API keys, create a new secret key, and paste it here.</li>
+                  </ol>
+                  <p>
+                    Trial credits are not guaranteed for every account. If none are available, keep using
+                    the free local mode.
+                  </p>
+                </details>
+                <ul className="ai-list">
+                  {aiEvaluation.insights.map((insight) => (
+                    <li
+                      key={insight.id}
+                      className={`ai-item ${insight.pass ? 'ai-pass' : 'ai-fail'}`}
+                    >
+                      <div className="ai-item-head">
+                        <span className={`impact-pill impact-${insight.impact}`}>{insight.impact}</span>
+                        <strong>{insight.title}</strong>
+                        <span className="ai-result">{insight.pass ? 'Strong' : 'Improve'}</span>
+                      </div>
+                      <p>{insight.feedback}</p>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            </div>
+          </section>
 
-            <article className="toolkit-card">
+          <section className="control-section section-toolkit">
+            <div className="section-heading">
+              <p className="section-kicker">Section 02</p>
               <h3>Builder Toolkit</h3>
-              <p>Quick actions to generate, save, import, and export your resume content.</p>
+              <p>Productivity actions are grouped separately from scoring and editing.</p>
+            </div>
 
-              <div className="tools-row" role="group" aria-label="Productivity tools">
-                <button type="button" className="tool-btn" onClick={generateSummary}>
-                  Generate Summary
-                </button>
-                <button type="button" className="tool-btn" onClick={saveDraft}>
-                  Save Draft
-                </button>
-                <button type="button" className="tool-btn" onClick={loadDraft}>
-                  Load Draft
-                </button>
-                <button type="button" className="tool-btn" onClick={exportJson}>
-                  Export JSON
-                </button>
-                <button type="button" className="tool-btn" onClick={triggerImport}>
-                  Import JSON
-                </button>
-                <button type="button" className="tool-btn" onClick={copyPlainText}>
-                  Copy Plain Text
-                </button>
-                <input
-                  ref={importInputRef}
-                  type="file"
-                  accept="application/json"
-                  className="hidden-file"
-                  onChange={handleImportJson}
-                />
+            <article className="toolkit-card toolkit-shell">
+              <div className="toolkit-groups" role="group" aria-label="Builder toolkit groups">
+                <div className="tool-group">
+                  <p className="tool-group-title">Writing</p>
+                  <div className="tools-row">
+                    <button type="button" className="tool-btn" onClick={generateSummary}>
+                      Generate Summary
+                    </button>
+                    <button type="button" className="tool-btn" onClick={copyPlainText}>
+                      Copy Plain Text
+                    </button>
+                  </div>
+                </div>
+
+                <div className="tool-group">
+                  <p className="tool-group-title">Draft Storage</p>
+                  <div className="tools-row">
+                    <button type="button" className="tool-btn" onClick={saveDraft}>
+                      Save Draft
+                    </button>
+                    <button type="button" className="tool-btn" onClick={loadDraft}>
+                      Load Draft
+                    </button>
+                  </div>
+                </div>
+
+                <div className="tool-group">
+                  <p className="tool-group-title">Data Transfer</p>
+                  <div className="tools-row">
+                    <button type="button" className="tool-btn" onClick={exportJson}>
+                      Export JSON
+                    </button>
+                    <button type="button" className="tool-btn" onClick={triggerImport}>
+                      Import JSON
+                    </button>
+                  </div>
+                </div>
               </div>
+
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="application/json"
+                className="hidden-file"
+                onChange={handleImportJson}
+              />
 
               {statusMessage ? (
                 <p className="status-note">{statusMessage}</p>
@@ -1289,288 +1336,317 @@ function App() {
                 <p className="status-note subtle">Autosave is enabled for this browser.</p>
               )}
             </article>
-          </div>
+          </section>
 
-          <article className="visibility-card">
-            <h3>Section Layout</h3>
-            <p>Toggle sections on or off based on the job you are applying for.</p>
-            <div className="visibility-grid">
-              {(Object.keys(SECTION_LABELS) as Array<keyof SectionVisibility>).map((section) => (
-                <label className="visibility-chip" key={section}>
-                  <input
-                    type="checkbox"
-                    checked={sectionVisibility[section]}
-                    onChange={() => toggleSection(section)}
-                  />
-                  {SECTION_LABELS[section]}
-                </label>
-              ))}
+          <section className="control-section section-layout">
+            <div className="section-heading">
+              <p className="section-kicker">Section 03</p>
+              <h3>Section Layout</h3>
+              <p>Toggle visibility per application and keep only role-relevant sections.</p>
             </div>
-          </article>
 
-          <div className="field-grid">
-            <label>
-              Full Name
-              <input
-                value={resume.fullName}
-                onChange={(event) => updateField('fullName', event.target.value)}
-              />
-            </label>
-            <label>
-              Job Title
-              <input
-                value={resume.title}
-                onChange={(event) => updateField('title', event.target.value)}
-              />
-            </label>
-            <label>
-              Email
-              <input
-                value={resume.email}
-                onChange={(event) => updateField('email', event.target.value)}
-              />
-            </label>
-            <label>
-              Phone
-              <input
-                value={resume.phone}
-                onChange={(event) => updateField('phone', event.target.value)}
-              />
-            </label>
-            <label>
-              Location
-              <input
-                value={resume.location}
-                onChange={(event) => updateField('location', event.target.value)}
-              />
-            </label>
-            <label>
-              Accent Color
-              <input
-                type="color"
-                value={resume.accentColor}
-                onChange={(event) => updateField('accentColor', event.target.value)}
-              />
-            </label>
-            <label>
-              Portfolio Website
-              <input
-                value={resume.website}
-                onChange={(event) => updateField('website', event.target.value)}
-                placeholder="yourportfolio.com"
-              />
-            </label>
-            <label>
-              LinkedIn
-              <input
-                value={resume.linkedin}
-                onChange={(event) => updateField('linkedin', event.target.value)}
-                placeholder="linkedin.com/in/yourname"
-              />
-            </label>
-          </div>
-
-          <div className="title-presets">
-            <p>Quick Title Buttons</p>
-            <div className="title-preset-row">
-              {TITLE_PRESETS.map((preset) => (
-                <button
-                  type="button"
-                  key={preset}
-                  className={`title-chip ${resume.title === preset ? 'active' : ''}`}
-                  onClick={() => updateField('title', preset)}
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <label>
-            Professional Summary
-            <textarea
-              rows={4}
-              value={resume.summary}
-              onChange={(event) => updateField('summary', event.target.value)}
-            />
-          </label>
-
-          <label>
-            Skills (comma separated)
-            <textarea
-              rows={3}
-              value={resume.skills}
-              onChange={(event) => updateField('skills', event.target.value)}
-            />
-          </label>
-
-          <div className="section-head">
-            <h3>Experience</h3>
-            <button type="button" className="mini-btn" onClick={addExperience}>
-              + Add
-            </button>
-          </div>
-
-          {resume.experiences.map((exp) => (
-            <article className="card" key={exp.id}>
-              <div className="card-head">
-                <strong>Entry {exp.id}</strong>
-                <button
-                  type="button"
-                  className="delete-btn"
-                  onClick={() => removeExperience(exp.id)}
-                  disabled={resume.experiences.length === 1}
-                >
-                  Remove
-                </button>
-              </div>
-              <label>
-                Role
-                <input
-                  value={exp.role}
-                  onChange={(event) => updateExperience(exp.id, 'role', event.target.value)}
-                />
-              </label>
-              <label>
-                Company
-                <input
-                  value={exp.company}
-                  onChange={(event) => updateExperience(exp.id, 'company', event.target.value)}
-                />
-              </label>
-              <label>
-                Period
-                <input
-                  value={exp.period}
-                  onChange={(event) => updateExperience(exp.id, 'period', event.target.value)}
-                />
-              </label>
-              <label>
-                Details
-                <textarea
-                  rows={3}
-                  value={exp.details}
-                  onChange={(event) => updateExperience(exp.id, 'details', event.target.value)}
-                />
-              </label>
-              <div className="verb-row">
-                {ACTION_VERBS.map((verb) => (
-                  <button
-                    type="button"
-                    key={`${exp.id}-${verb}`}
-                    className="verb-btn"
-                    onClick={() => applyActionVerb(exp.id, verb)}
-                  >
-                    {verb}
-                  </button>
+            <article className="visibility-card">
+              <div className="visibility-grid">
+                {(Object.keys(SECTION_LABELS) as Array<keyof SectionVisibility>).map((section) => (
+                  <label className="visibility-chip" key={section}>
+                    <input
+                      type="checkbox"
+                      checked={sectionVisibility[section]}
+                      onChange={() => toggleSection(section)}
+                    />
+                    {SECTION_LABELS[section]}
+                  </label>
                 ))}
               </div>
             </article>
-          ))}
+          </section>
 
-          <div className="section-head">
-            <h3>Projects</h3>
-            <button type="button" className="mini-btn" onClick={addProject}>
-              + Add
-            </button>
-          </div>
+          <section className="control-section section-content">
+            <div className="section-heading">
+              <p className="section-kicker">Section 04</p>
+              <h3>Resume Content Builder</h3>
+              <p>Profile details and resume sections are grouped into focused edit blocks.</p>
+            </div>
 
-          {resume.projects.map((project) => (
-            <article className="card" key={project.id}>
-              <div className="card-head">
-                <strong>Entry {project.id}</strong>
-                <button
-                  type="button"
-                  className="delete-btn"
-                  onClick={() => removeProject(project.id)}
-                  disabled={resume.projects.length === 1}
-                >
-                  Remove
-                </button>
+            <article className="form-block">
+              <h4>Profile Basics</h4>
+              <div className="field-grid">
+                <label>
+                  Full Name
+                  <input
+                    value={resume.fullName}
+                    onChange={(event) => updateField('fullName', event.target.value)}
+                  />
+                </label>
+                <label>
+                  Job Title
+                  <input
+                    value={resume.title}
+                    onChange={(event) => updateField('title', event.target.value)}
+                  />
+                </label>
+                <label>
+                  Email
+                  <input
+                    value={resume.email}
+                    onChange={(event) => updateField('email', event.target.value)}
+                  />
+                </label>
+                <label>
+                  Phone
+                  <input
+                    value={resume.phone}
+                    onChange={(event) => updateField('phone', event.target.value)}
+                  />
+                </label>
+                <label>
+                  Location
+                  <input
+                    value={resume.location}
+                    onChange={(event) => updateField('location', event.target.value)}
+                  />
+                </label>
+                <label>
+                  Accent Color
+                  <input
+                    type="color"
+                    value={resume.accentColor}
+                    onChange={(event) => updateField('accentColor', event.target.value)}
+                  />
+                </label>
+                <label>
+                  Portfolio Website
+                  <input
+                    value={resume.website}
+                    onChange={(event) => updateField('website', event.target.value)}
+                    placeholder="yourportfolio.com"
+                  />
+                </label>
+                <label>
+                  LinkedIn
+                  <input
+                    value={resume.linkedin}
+                    onChange={(event) => updateField('linkedin', event.target.value)}
+                    placeholder="linkedin.com/in/yourname"
+                  />
+                </label>
               </div>
+            </article>
+
+            <article className="form-block">
+              <h4>Target Title</h4>
+              <div className="title-presets">
+                <p>Quick Title Buttons</p>
+                <div className="title-preset-row">
+                  {TITLE_PRESETS.map((preset) => (
+                    <button
+                      type="button"
+                      key={preset}
+                      className={`title-chip ${resume.title === preset ? 'active' : ''}`}
+                      onClick={() => updateField('title', preset)}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </article>
+
+            <article className="form-block">
+              <h4>Professional Story</h4>
               <label>
-                Project Name
-                <input
-                  value={project.name}
-                  onChange={(event) => updateProject(project.id, 'name', event.target.value)}
+                Professional Summary
+                <textarea
+                  rows={4}
+                  value={resume.summary}
+                  onChange={(event) => updateField('summary', event.target.value)}
                 />
               </label>
+
               <label>
-                Tech Stack
-                <input
-                  value={project.tech}
-                  onChange={(event) => updateProject(project.id, 'tech', event.target.value)}
-                />
-              </label>
-              <label>
-                Period
-                <input
-                  value={project.period}
-                  onChange={(event) => updateProject(project.id, 'period', event.target.value)}
-                />
-              </label>
-              <label>
-                Link
-                <input
-                  value={project.link}
-                  onChange={(event) => updateProject(project.id, 'link', event.target.value)}
-                  placeholder="project-link.com"
-                />
-              </label>
-              <label>
-                Details
+                Skills (comma separated)
                 <textarea
                   rows={3}
-                  value={project.details}
-                  onChange={(event) => updateProject(project.id, 'details', event.target.value)}
+                  value={resume.skills}
+                  onChange={(event) => updateField('skills', event.target.value)}
                 />
               </label>
             </article>
-          ))}
 
-          <div className="section-head">
-            <h3>Education</h3>
-            <button type="button" className="mini-btn" onClick={addEducation}>
-              + Add
-            </button>
-          </div>
-
-          {resume.education.map((item) => (
-            <article className="card" key={item.id}>
-              <div className="card-head">
-                <strong>Entry {item.id}</strong>
-                <button
-                  type="button"
-                  className="delete-btn"
-                  onClick={() => removeEducation(item.id)}
-                  disabled={resume.education.length === 1}
-                >
-                  Remove
+            <article className="form-block">
+              <div className="section-head">
+                <h3>Experience</h3>
+                <button type="button" className="mini-btn" onClick={addExperience}>
+                  + Add
                 </button>
               </div>
-              <label>
-                Degree
-                <input
-                  value={item.degree}
-                  onChange={(event) => updateEducation(item.id, 'degree', event.target.value)}
-                />
-              </label>
-              <label>
-                School
-                <input
-                  value={item.school}
-                  onChange={(event) => updateEducation(item.id, 'school', event.target.value)}
-                />
-              </label>
-              <label>
-                Period
-                <input
-                  value={item.period}
-                  onChange={(event) => updateEducation(item.id, 'period', event.target.value)}
-                />
-              </label>
+
+              {resume.experiences.map((exp) => (
+                <article className="card" key={exp.id}>
+                  <div className="card-head">
+                    <strong>Entry {exp.id}</strong>
+                    <button
+                      type="button"
+                      className="delete-btn"
+                      onClick={() => removeExperience(exp.id)}
+                      disabled={resume.experiences.length === 1}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <label>
+                    Role
+                    <input
+                      value={exp.role}
+                      onChange={(event) => updateExperience(exp.id, 'role', event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Company
+                    <input
+                      value={exp.company}
+                      onChange={(event) => updateExperience(exp.id, 'company', event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Period
+                    <input
+                      value={exp.period}
+                      onChange={(event) => updateExperience(exp.id, 'period', event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Details
+                    <textarea
+                      rows={3}
+                      value={exp.details}
+                      onChange={(event) => updateExperience(exp.id, 'details', event.target.value)}
+                    />
+                  </label>
+                  <div className="verb-row">
+                    {ACTION_VERBS.map((verb) => (
+                      <button
+                        type="button"
+                        key={`${exp.id}-${verb}`}
+                        className="verb-btn"
+                        onClick={() => applyActionVerb(exp.id, verb)}
+                      >
+                        {verb}
+                      </button>
+                    ))}
+                  </div>
+                </article>
+              ))}
             </article>
-          ))}
+
+            <article className="form-block">
+              <div className="section-head">
+                <h3>Projects</h3>
+                <button type="button" className="mini-btn" onClick={addProject}>
+                  + Add
+                </button>
+              </div>
+
+              {resume.projects.map((project) => (
+                <article className="card" key={project.id}>
+                  <div className="card-head">
+                    <strong>Entry {project.id}</strong>
+                    <button
+                      type="button"
+                      className="delete-btn"
+                      onClick={() => removeProject(project.id)}
+                      disabled={resume.projects.length === 1}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <label>
+                    Project Name
+                    <input
+                      value={project.name}
+                      onChange={(event) => updateProject(project.id, 'name', event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Tech Stack
+                    <input
+                      value={project.tech}
+                      onChange={(event) => updateProject(project.id, 'tech', event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Period
+                    <input
+                      value={project.period}
+                      onChange={(event) => updateProject(project.id, 'period', event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Link
+                    <input
+                      value={project.link}
+                      onChange={(event) => updateProject(project.id, 'link', event.target.value)}
+                      placeholder="project-link.com"
+                    />
+                  </label>
+                  <label>
+                    Details
+                    <textarea
+                      rows={3}
+                      value={project.details}
+                      onChange={(event) => updateProject(project.id, 'details', event.target.value)}
+                    />
+                  </label>
+                </article>
+              ))}
+            </article>
+
+            <article className="form-block">
+              <div className="section-head">
+                <h3>Education</h3>
+                <button type="button" className="mini-btn" onClick={addEducation}>
+                  + Add
+                </button>
+              </div>
+
+              {resume.education.map((item) => (
+                <article className="card" key={item.id}>
+                  <div className="card-head">
+                    <strong>Entry {item.id}</strong>
+                    <button
+                      type="button"
+                      className="delete-btn"
+                      onClick={() => removeEducation(item.id)}
+                      disabled={resume.education.length === 1}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <label>
+                    Degree
+                    <input
+                      value={item.degree}
+                      onChange={(event) => updateEducation(item.id, 'degree', event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    School
+                    <input
+                      value={item.school}
+                      onChange={(event) => updateEducation(item.id, 'school', event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Period
+                    <input
+                      value={item.period}
+                      onChange={(event) => updateEducation(item.id, 'period', event.target.value)}
+                    />
+                  </label>
+                </article>
+              ))}
+            </article>
+          </section>
         </section>
 
         <section className="preview-panel">

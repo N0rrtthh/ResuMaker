@@ -490,8 +490,71 @@
   color: var(--muted);
 }
 
-.overview-grid {
+.editor-panel-intro {
   margin-bottom: 12px;
+}
+
+.control-section {
+  margin-bottom: 12px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--card-border) 90%, transparent);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--panel-bg) 85%, transparent),
+    color-mix(in srgb, var(--card-bg) 55%, transparent)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 14px 24px color-mix(in srgb, var(--elev-color) 28%, transparent);
+  padding: 12px;
+}
+
+.control-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-evaluation {
+  border-color: color-mix(in srgb, #65a8ff 45%, var(--card-border));
+}
+
+.section-toolkit {
+  border-color: color-mix(in srgb, #5ac8a0 40%, var(--card-border));
+}
+
+.section-layout {
+  border-color: color-mix(in srgb, #7aa4e8 42%, var(--card-border));
+}
+
+.section-content {
+  border-color: color-mix(in srgb, #7f9ec8 42%, var(--card-border));
+}
+
+.section-heading {
+  margin-bottom: 10px;
+}
+
+.section-kicker {
+  margin: 0 0 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.67rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.section-heading h3 {
+  margin: 0;
+  font-size: 1.02rem;
+  color: var(--text);
+}
+
+.section-heading p {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.evaluation-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
@@ -596,6 +659,36 @@
 .ai-helper {
   margin: 0 0 9px;
   font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.api-help {
+  margin: 0 0 10px;
+  border-radius: 12px;
+  border: 1px dashed var(--chip-border);
+  background: color-mix(in srgb, var(--chip-bg) 90%, transparent);
+  padding: 8px 10px;
+}
+
+.api-help summary {
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.api-help ol {
+  margin: 8px 0 6px;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.api-help p {
+  margin: 0;
+  font-size: 0.72rem;
   color: var(--muted);
 }
 
@@ -713,6 +806,35 @@
   color: var(--muted);
 }
 
+.toolkit-shell {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.toolkit-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tool-group {
+  border-radius: 13px;
+  border: 1px solid var(--chip-border);
+  background: color-mix(in srgb, var(--chip-bg) 94%, transparent);
+  padding: 8px;
+}
+
+.tool-group-title {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--muted);
+}
+
 .score-pill {
   display: inline-flex;
   align-items: center;
@@ -771,6 +893,10 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.tool-group .tools-row {
+  grid-template-columns: 1fr;
 }
 
 .tool-btn {
@@ -837,6 +963,31 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.form-block {
+  margin-bottom: 11px;
+  border-radius: 16px;
+  border: 1px solid var(--card-border);
+  background: color-mix(in srgb, var(--card-bg) 88%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  padding: 12px;
+}
+
+.form-block:last-child {
+  margin-bottom: 0;
+}
+
+.form-block h4 {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.form-block .section-head {
+  margin-top: 0;
 }
 
 label {
@@ -1191,7 +1342,17 @@ input[type='color'] {
   }
 }
 
+@media (min-width: 980px) {
+  .evaluation-grid {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+}
+
 @media (max-width: 1200px) {
+  .toolkit-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .visibility-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1216,6 +1377,10 @@ input[type='color'] {
 @media (max-width: 760px) {
   .page-shell {
     padding: 12px;
+  }
+
+  .control-section {
+    padding: 10px;
   }
 
   .ambient {
@@ -1256,6 +1421,10 @@ input[type='color'] {
   }
 
   .tools-row {
+    grid-template-columns: 1fr;
+  }
+
+  .toolkit-groups {
     grid-template-columns: 1fr;
   }
 
