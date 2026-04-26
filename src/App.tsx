@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist'
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import './App.css'
 
 type Experience = {
@@ -85,6 +87,8 @@ type TransitionCapableDocument = Document & {
     finished: Promise<void>
   }
 }
+
+GlobalWorkerOptions.workerSrc = pdfWorker
 
 const STORAGE_KEY = 'resumaker-draft-v3'
 const COLOR_MODE_STORAGE_KEY = 'resumaker-color-mode-v1'
@@ -261,6 +265,281 @@ const normalizeUrl = (value: string) => {
     return ''
   }
   return /^https?:\/\//i.test(value) ? value : `https://${value}`
+}
+
+const dedupe = (values: string[]) => Array.from(new Set(values))
+
+const normalizeLine = (value: string) => value.replace(/\s+/g, ' ').trim()
+
+const HEADING_MATCHERS = {
+  summary: ['summary', 'professional summary', 'profile', 'objective', 'about'],
+  experience: ['experience', 'work experience', 'employment history', 'professional experience'],
+  projects: ['projects', 'project experience'],
+  education: ['education', 'academic background', 'academics'],
+  skills: ['skills', 'technical skills', 'core skills', 'competencies'],
+}
+
+const normalizeHeading = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const findSectionRanges = (lines: string[]) => {
+  const entries = lines
+    .map((line, index) => ({ line: normalizeHeading(line), index }))
+    .flatMap(({ line, index }) => {
+      const matchedKey = (Object.keys(HEADING_MATCHERS) as Array<keyof typeof HEADING_MATCHERS>).find(
+        (key) => HEADING_MATCHERS[key].some((heading) => line === heading || line.startsWith(`${heading} `)),
+      )
+      return matchedKey ? [{ key: matchedKey, index }] : []
+    })
+
+  const sorted = entries.sort((a, b) => a.index - b.index)
+
+  return sorted.map((entry, idx) => ({
+    key: entry.key,
+    start: entry.index + 1,
+    end: idx < sorted.length - 1 ? sorted[idx + 1].index : lines.length,
+  }))
+}
+
+const sliceSection = (lines: string[], ranges: ReturnType<typeof findSectionRanges>, key: keyof typeof HEADING_MATCHERS) => {
+  const range = ranges.find((item) => item.key === key)
+  if (!range) {
+    return []
+  }
+
+  return lines.slice(range.start, range.end).map(normalizeLine).filter(Boolean)
+}
+
+const parseSkills = (sectionLines: string[]) => {
+  const merged = sectionLines
+    .join(',')
+    .split(/[,|]/)
+    .map((item) => item.replace(/^[-*\u2022]\s*/, '').trim())
+    .filter((item) => item.length >= 2 && item.length <= 40)
+
+  return dedupe(merged).slice(0, 24)
+}
+
+const parseExperienceEntries = (lines: string[]): Experience[] => {
+  if (!lines.length) {
+    return []
+  }
+
+  const datePattern = /((19|20)\d{2}|present|current|to)/i
+  const rolePattern = /^([A-Za-z][A-Za-z0-9/&+\-\s]{2,60})\s(?:at|,|-)\s([A-Za-z][A-Za-z0-9/&+\-.\s]{2,80})$/
+  const entries: Experience[] = []
+  let current: Experience = { id: 1, role: '', company: '', period: '', details: '' }
+
+  const flush = () => {
+    if (current.role || current.company || current.period || current.details) {
+      entries.push({ ...current, id: entries.length + 1, details: current.details.trim() })
+    }
+    current = { id: entries.length + 1, role: '', company: '', period: '', details: '' }
+  }
+
+  lines.forEach((line) => {
+    const cleaned = line.replace(/^[-*\u2022]\s*/, '').trim()
+    if (!cleaned) {
+      return
+    }
+
+    const roleMatch = cleaned.match(rolePattern)
+    if (roleMatch) {
+      if (current.role || current.company || current.period || current.details) {
+        flush()
+      }
+      current.role = roleMatch[1].trim()
+      current.company = roleMatch[2].trim()
+      return
+    }
+
+    if (!current.period && datePattern.test(cleaned) && cleaned.length <= 40) {
+      current.period = cleaned
+      return
+    }
+
+    if (!current.role && cleaned.length <= 70 && !cleaned.includes('.')) {
+      current.role = cleaned
+      return
+    }
+
+    current.details = current.details ? `${current.details}\n${cleaned}` : cleaned
+  })
+
+  flush()
+
+  return entries.slice(0, 6)
+}
+
+const parseEducationEntries = (lines: string[]): Education[] => {
+  if (!lines.length) {
+    return []
+  }
+
+  const degreePattern = /b\.?s\.?|m\.?s\.?|bachelor|master|phd|mba|degree|diploma|certification/i
+  const datePattern = /((19|20)\d{2}|present|current|to)/i
+  const entries: Education[] = []
+  let current: Education = { id: 1, degree: '', school: '', period: '' }
+
+  const flush = () => {
+    if (current.degree || current.school || current.period) {
+      entries.push({ ...current, id: entries.length + 1 })
+    }
+    current = { id: entries.length + 1, degree: '', school: '', period: '' }
+  }
+
+  lines.forEach((line) => {
+    const cleaned = line.replace(/^[-*\u2022]\s*/, '').trim()
+    if (!cleaned) {
+      return
+    }
+
+    if (!current.period && datePattern.test(cleaned) && cleaned.length <= 40) {
+      current.period = cleaned
+      return
+    }
+
+    if (!current.degree && degreePattern.test(cleaned)) {
+      current.degree = cleaned
+      return
+    }
+
+    if (!current.school) {
+      current.school = cleaned
+      return
+    }
+
+    if (current.degree || current.school || current.period) {
+      flush()
+      current.school = cleaned
+    }
+  })
+
+  flush()
+
+  return entries.slice(0, 4)
+}
+
+const parseProjectEntries = (lines: string[]): Project[] => {
+  if (!lines.length) {
+    return []
+  }
+
+  const linkPattern = /(https?:\/\/\S+|github\.com\/\S+|gitlab\.com\/\S+)/i
+  const datePattern = /((19|20)\d{2}|present|current|to)/i
+  const entries: Project[] = []
+  let current: Project = { id: 1, name: '', tech: '', period: '', link: '', details: '' }
+
+  const flush = () => {
+    if (current.name || current.tech || current.period || current.link || current.details) {
+      entries.push({ ...current, id: entries.length + 1, details: current.details.trim() })
+    }
+    current = { id: entries.length + 1, name: '', tech: '', period: '', link: '', details: '' }
+  }
+
+  lines.forEach((line) => {
+    const cleaned = line.replace(/^[-*\u2022]\s*/, '').trim()
+    if (!cleaned) {
+      return
+    }
+
+    if (!current.link && linkPattern.test(cleaned)) {
+      const found = cleaned.match(linkPattern)
+      current.link = found ? found[0] : ''
+      return
+    }
+
+    if (!current.period && datePattern.test(cleaned) && cleaned.length <= 40) {
+      current.period = cleaned
+      return
+    }
+
+    if (!current.name && cleaned.length <= 70 && !cleaned.includes('.')) {
+      current.name = cleaned
+      return
+    }
+
+    if (!current.tech && /react|typescript|node|python|java|figma|aws|docker|sql/i.test(cleaned)) {
+      current.tech = cleaned
+      return
+    }
+
+    current.details = current.details ? `${current.details}\n${cleaned}` : cleaned
+  })
+
+  flush()
+
+  return entries.slice(0, 5)
+}
+
+const parseResumeFromText = (text: string) => {
+  const lines = text
+    .split(/\r?\n/)
+    .map(normalizeLine)
+    .filter(Boolean)
+
+  const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)
+  const phoneMatch = text.match(/(?:\+?\d{1,3}[\s-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/)
+  const linkedinMatch = text.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/[^\s)]+/i)
+  const urlMatches = text.match(/(?:https?:\/\/)?(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s)]*)?/gi) ?? []
+
+  const headerCandidates = lines.slice(0, 8)
+  const fullName =
+    headerCandidates.find(
+      (line) =>
+        /^[A-Za-z][A-Za-z\s.'-]{2,50}$/.test(line) &&
+        !/@/.test(line) &&
+        !/resume|curriculum/i.test(line),
+    ) ?? ''
+
+  const title =
+    headerCandidates.find(
+      (line) =>
+        line !== fullName &&
+        !line.includes('@') &&
+        !line.match(/\d{3}/) &&
+        line.length >= 4 &&
+        line.length <= 55,
+    ) ?? ''
+
+  const ranges = findSectionRanges(lines)
+  const summaryLines = sliceSection(lines, ranges, 'summary')
+  const experienceLines = sliceSection(lines, ranges, 'experience')
+  const projectLines = sliceSection(lines, ranges, 'projects')
+  const educationLines = sliceSection(lines, ranges, 'education')
+  const skillsLines = sliceSection(lines, ranges, 'skills')
+
+  const summary = summaryLines.join(' ').slice(0, 720)
+  const experiences = parseExperienceEntries(experienceLines)
+  const projects = parseProjectEntries(projectLines)
+  const education = parseEducationEntries(educationLines)
+  const skills = parseSkills(skillsLines).join(', ')
+
+  const location =
+    headerCandidates.find(
+      (line) => !line.includes('@') && /,/.test(line) && !line.match(/https?:\/\//i) && !line.match(/linkedin/i),
+    ) ?? ''
+
+  const website = urlMatches.find((url) => !/linkedin\.com/i.test(url)) ?? ''
+
+  return {
+    fullName,
+    title,
+    email: emailMatch?.[0] ?? '',
+    phone: phoneMatch?.[0] ?? '',
+    location,
+    website,
+    linkedin: linkedinMatch?.[0] ?? '',
+    summary,
+    skills,
+    experiences,
+    education,
+    projects,
+  }
 }
 
 const readStoredValue = (key: string, fallback = '') => {
@@ -638,6 +917,7 @@ function App() {
   const [statusMessage, setStatusMessage] = useState('')
 
   const importInputRef = useRef<HTMLInputElement>(null)
+  const pdfImportInputRef = useRef<HTMLInputElement>(null)
 
   const parsedSkills = useMemo(
     () =>
@@ -1204,6 +1484,10 @@ function App() {
     importInputRef.current?.click()
   }
 
+  const triggerPdfImport = () => {
+    pdfImportInputRef.current?.click()
+  }
+
   const handleImportJson = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     event.target.value = ''
@@ -1230,6 +1514,76 @@ function App() {
       flashStatus('Resume data imported successfully.')
     } catch {
       flashStatus('Import failed. Please select a valid JSON file.')
+    }
+  }
+
+  const handleImportPdf = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+
+    if (!file) {
+      return
+    }
+
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    if (!isPdf) {
+      flashStatus('Import failed. Please choose a PDF resume file.')
+      return
+    }
+
+    try {
+      flashStatus('Reading PDF and extracting resume details...')
+
+      const data = new Uint8Array(await file.arrayBuffer())
+      const pdf = await getDocument({ data }).promise
+      const pageTexts: string[] = []
+
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+        const page = await pdf.getPage(pageNumber)
+        const content = await page.getTextContent()
+
+        const pageText = content.items
+          .map((item) => {
+            const text = 'str' in item ? String(item.str ?? '') : ''
+            const hasEol = 'hasEOL' in item ? Boolean(item.hasEOL) : false
+            return `${text}${hasEol ? '\n' : ' '}`
+          })
+          .join('')
+
+        pageTexts.push(pageText)
+      }
+
+      const parsed = parseResumeFromText(pageTexts.join('\n'))
+      let nextResume: ResumeData | null = null
+
+      setResume((prev) => {
+        const merged: ResumeData = {
+          ...prev,
+          fullName: parsed.fullName || prev.fullName,
+          title: parsed.title || prev.title,
+          email: parsed.email || prev.email,
+          phone: parsed.phone || prev.phone,
+          location: parsed.location || prev.location,
+          website: parsed.website || prev.website,
+          linkedin: parsed.linkedin || prev.linkedin,
+          summary: parsed.summary || prev.summary,
+          skills: parsed.skills || prev.skills,
+          experiences: parsed.experiences.length ? parsed.experiences : prev.experiences,
+          education: parsed.education.length ? parsed.education : prev.education,
+          projects: parsed.projects.length ? parsed.projects : prev.projects,
+        }
+
+        nextResume = merged
+        return merged
+      })
+
+      if (nextResume) {
+        syncIds(nextResume)
+      }
+
+      flashStatus('PDF imported. Review extracted details and adjust as needed.')
+    } catch {
+      flashStatus('Could not parse this PDF. Try a text-based PDF or import JSON instead.')
     }
   }
 
@@ -1682,6 +2036,9 @@ function App() {
                     <button type="button" className="tool-btn" onClick={triggerImport}>
                       Import JSON
                     </button>
+                    <button type="button" className="tool-btn" onClick={triggerPdfImport}>
+                      Upload Resume PDF
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1692,6 +2049,14 @@ function App() {
                 accept="application/json"
                 className="hidden-file"
                 onChange={handleImportJson}
+              />
+
+              <input
+                ref={pdfImportInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden-file"
+                onChange={handleImportPdf}
               />
 
               {statusMessage ? (
