@@ -38,10 +38,13 @@ type ResumeData = {
   accentColor: string
   primaryTextColor: string
   secondaryTextColor: string
+  template: ResumeTemplate
   experiences: Experience[]
   education: Education[]
   projects: Project[]
 }
+
+type ResumeTemplate = 'classic' | 'editorial' | 'compact'
 
 type SectionVisibility = {
   summary: boolean
@@ -105,6 +108,28 @@ const TITLE_PRESETS = [
   'Project Manager',
 ]
 
+const TEMPLATE_PRESETS: Array<{
+  id: ResumeTemplate
+  label: string
+  description: string
+}> = [
+  {
+    id: 'classic',
+    label: 'Classic',
+    description: 'Clean paper layout with balanced spacing and crisp sections.',
+  },
+  {
+    id: 'editorial',
+    label: 'Editorial',
+    description: 'Strong heading presence with a left accent rail for personality.',
+  },
+  {
+    id: 'compact',
+    label: 'Compact',
+    description: 'Tighter spacing for dense resumes with more content per page.',
+  },
+]
+
 const SECTION_LABELS: Record<keyof SectionVisibility, string> = {
   summary: 'Summary',
   experience: 'Experience',
@@ -142,6 +167,7 @@ const INITIAL_DATA: ResumeData = {
   accentColor: '#3b82f6',
   primaryTextColor: '#1f2937',
   secondaryTextColor: '#4b5563',
+  template: 'classic',
   experiences: [
     {
       id: 1,
@@ -1067,6 +1093,13 @@ function App() {
     flashStatus('Template reset. You can start fresh now.')
   }
 
+  const selectTemplate = (template: ResumeTemplate) => {
+    setResume((prev) => ({
+      ...prev,
+      template,
+    }))
+  }
+
   const generateSummary = () => {
     const topSkills = parsedSkills.slice(0, 4).join(', ')
     const recentExperience = filledExperiences[0]
@@ -1710,6 +1743,24 @@ function App() {
 
             <div className="section-body">
             <article className="form-block">
+              <h4>Template Style</h4>
+              <div className="template-grid" role="radiogroup" aria-label="Resume template style">
+                {TEMPLATE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className={`template-card ${resume.template === preset.id ? 'active' : ''}`}
+                    onClick={() => selectTemplate(preset.id)}
+                    aria-pressed={resume.template === preset.id}
+                  >
+                    <span className="template-card-label">{preset.label}</span>
+                    <span className="template-card-copy">{preset.description}</span>
+                  </button>
+                ))}
+              </div>
+            </article>
+
+            <article className="form-block">
               <h4>Profile Basics</h4>
               <div className="field-grid">
                 <label>
@@ -2012,7 +2063,7 @@ function App() {
           <p className="panel-meta">Print-ready layout optimized for PDF export.</p>
 
           <article
-            className="resume"
+            className={`resume template-${resume.template}`}
             style={{
               ['--accent' as string]: resume.accentColor,
               ['--resume-text-primary' as string]: resume.primaryTextColor,
