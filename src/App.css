@@ -575,7 +575,7 @@
   display: grid;
   gap: 10px;
   overflow: hidden;
-  max-height: 4000px;
+  max-height: 50000px;
   opacity: 1;
   transform: translateY(0);
   transition:
