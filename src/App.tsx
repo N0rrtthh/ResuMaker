@@ -44,7 +44,7 @@ type ResumeData = {
   projects: Project[]
 }
 
-type ResumeTemplate = 'classic' | 'editorial' | 'compact'
+type ResumeTemplate = 'classic' | 'editorial' | 'compact' | 'sidebar' | 'minimal' | 'executive'
 
 type SectionVisibility = {
   summary: boolean
@@ -127,6 +127,21 @@ const TEMPLATE_PRESETS: Array<{
     id: 'compact',
     label: 'Compact',
     description: 'Tighter spacing for dense resumes with more content per page.',
+  },
+  {
+    id: 'sidebar',
+    label: 'Sidebar',
+    description: 'Two-column layout with skills and links pulled into a side rail.',
+  },
+  {
+    id: 'minimal',
+    label: 'Minimal',
+    description: 'A clean ATS-friendly layout with reduced visual decoration.',
+  },
+  {
+    id: 'executive',
+    label: 'Executive',
+    description: 'High-contrast presentation with strong section hierarchy and polish.',
   },
 ]
 
@@ -2092,14 +2107,14 @@ function App() {
             </header>
 
             {sectionVisibility.summary ? (
-              <section>
+              <section className="resume-section resume-summary">
                 <h4>Summary</h4>
                 <p>{resume.summary || 'Add your professional summary in the left panel.'}</p>
               </section>
             ) : null}
 
             {sectionVisibility.experience ? (
-              <section>
+              <section className="resume-section resume-experience">
                 <h4>Experience</h4>
                 {filledExperiences.length ? (
                   filledExperiences.map((exp) => (
@@ -2119,7 +2134,7 @@ function App() {
             ) : null}
 
             {sectionVisibility.projects ? (
-              <section>
+              <section className="resume-section resume-projects">
                 <h4>Projects</h4>
                 {filledProjects.length ? (
                   filledProjects.map((project) => (
@@ -2146,7 +2161,7 @@ function App() {
             ) : null}
 
             {sectionVisibility.education ? (
-              <section>
+              <section className="resume-section resume-education">
                 <h4>Education</h4>
                 {filledEducation.length ? (
                   filledEducation.map((item) => (
@@ -2165,7 +2180,7 @@ function App() {
             ) : null}
 
             {sectionVisibility.skills ? (
-              <section>
+              <section className="resume-section resume-skills">
                 <h4>Skills</h4>
                 {parsedSkills.length ? (
                   <ul className="skills-list">
