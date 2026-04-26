@@ -36,6 +36,8 @@ type ResumeData = {
   summary: string
   skills: string
   accentColor: string
+  primaryTextColor: string
+  secondaryTextColor: string
   experiences: Experience[]
   education: Education[]
   projects: Project[]
@@ -138,6 +140,8 @@ const INITIAL_DATA: ResumeData = {
     'User-focused designer with 5+ years of experience building accessible web products. I turn complex flows into simple interfaces that users enjoy.',
   skills: 'UI Design, UX Research, Figma, Prototyping, Design Systems, Accessibility, React',
   accentColor: '#3b82f6',
+  primaryTextColor: '#1f2937',
+  secondaryTextColor: '#4b5563',
   experiences: [
     {
       id: 1,
@@ -1361,6 +1365,19 @@ function App() {
     flashStatus('ATS-friendly text resume downloaded.')
   }
 
+  const printResume = () => {
+    const originalTitle = document.title
+    const nextTitle = (resume.fullName || '').trim() || 'Resume'
+
+    const restoreTitle = () => {
+      document.title = originalTitle
+    }
+
+    document.title = nextTitle
+    window.addEventListener('afterprint', restoreTitle, { once: true })
+    window.print()
+  }
+
   return (
     <div className={`page-shell theme-liquid mode-${colorMode}`}>
       <div className="ambient ambient-one" aria-hidden="true" />
@@ -1369,10 +1386,9 @@ function App() {
 
       <header className="topbar">
         <div className="header-copy">
-          <p className="tag">ResuMaker</p>
-          <h1>Build your resume in minutes</h1>
+          <h1>Build a professional resume faster</h1>
           <p className="subtitle">
-            Structured controls, better tooling, and real-time preview in a premium liquid-glass UI.
+            Smart editing controls with a true paper preview so what you see is what prints.
           </p>
         </div>
         <div className="topbar-actions">
@@ -1400,7 +1416,7 @@ function App() {
             <button type="button" className="secondary-btn" onClick={resetTemplate}>
               Reset Template
             </button>
-            <button type="button" className="primary-btn" onClick={() => window.print()}>
+            <button type="button" className="primary-btn" onClick={printResume}>
               Print / Save PDF
             </button>
           </div>
@@ -1740,6 +1756,22 @@ function App() {
                   />
                 </label>
                 <label>
+                  Primary Text Color
+                  <input
+                    type="color"
+                    value={resume.primaryTextColor}
+                    onChange={(event) => updateField('primaryTextColor', event.target.value)}
+                  />
+                </label>
+                <label>
+                  Secondary Text Color
+                  <input
+                    type="color"
+                    value={resume.secondaryTextColor}
+                    onChange={(event) => updateField('secondaryTextColor', event.target.value)}
+                  />
+                </label>
+                <label>
                   Portfolio Website
                   <input
                     value={resume.website}
@@ -1979,7 +2011,14 @@ function App() {
           <h2>Live Preview</h2>
           <p className="panel-meta">Print-ready layout optimized for PDF export.</p>
 
-          <article className="resume" style={{ ['--accent' as string]: resume.accentColor }}>
+          <article
+            className="resume"
+            style={{
+              ['--accent' as string]: resume.accentColor,
+              ['--resume-text-primary' as string]: resume.primaryTextColor,
+              ['--resume-text-secondary' as string]: resume.secondaryTextColor,
+            }}
+          >
             <header className="resume-header">
               <h3>{resume.fullName || 'Your Name'}</h3>
               <p className="resume-title">{resume.title || 'Your Professional Title'}</p>
